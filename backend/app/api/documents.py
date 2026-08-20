@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional, List
 import os
@@ -32,6 +32,48 @@ class IngestRequest(BaseModel):
     markdown_content: str
     original_format: Optional[str] = ".md"
 
+@router.get("/")
+async def list_documents(collection_id: Optional[str] = Query(None, description="ID de la collection cible")):
+    """
+    Récupère la liste des documents d'une collection directement depuis Albert API
+    (et fusionne les métadonnées locales).
+    """
+    remote_docs = await albert_client.list_documents(collection_id=collection_id, limit=100)
+    local_docs = get_local_docs()
+    
+    if collection_id:
+        local_docs = [d for d in local_docs if str(d.get("collection_id")) == str(collection_id)]
+
+    merged = {}
+    
+    # 1. Traiter les documents renvoyés par Albert API
+    if isinstance(remote_docs, list):
+        for r in remote_docs:
+            if isinstance(r, dict):
+                doc_key = str(r.get("id") or r.get("name") or "")
+                if doc_key:
+                    merged[doc_key] = r
+
+    # 2. Fusionner avec les métadonnées locales
+    for d in local_docs:
+        if isinstance(d, dict):
+            doc_key = str(d.get("id") or d.get("name") or "")
+            if doc_key:
+                if doc_key not in merged:
+                    merged[doc_key] = d
+                else:
+                    merged[doc_key].update(d)
+
+    return list(merged.values())
+
+@router.get("/{document_id}/chunks")
+async def get_document_chunks(document_id: str, limit: int = Query(50, description="Nombre de chunks à retourner")):
+    """
+    Récupère les extraits/morceaux (chunks) d'un document référencé dans Albert API.
+    """
+    chunks = await albert_client.get_document_chunks(document_id, limit=limit)
+    return chunks
+
 @router.post("/convert")
 async def convert_document(
     file: UploadFile = File(...),
@@ -42,7 +84,6 @@ async def convert_document(
     et le retourne pour prévisualisation et édition dans l'interface d'administration.
     """
     try:
-        # Save uploaded raw file
         temp_id = str(uuid.uuid4())[:8]
         raw_filename = f"{temp_id}_{file.filename}"
         raw_file_path = os.path.join(settings.UPLOAD_DIR, raw_filename)
@@ -51,7 +92,6 @@ async def convert_document(
         with open(raw_file_path, "wb") as f:
             f.write(content)
 
-        # Execute conversion to Markdown
         conversion_result = DocumentConverter.convert_to_markdown(
             file_path=raw_file_path,
             filename=file.filename,
@@ -80,28 +120,26 @@ async def convert_document(
 @router.post("/ingest")
 async def ingest_document_to_albert(payload: IngestRequest):
     """
-    Étape cruciale 2: Prend le contenu Markdown validé/édité et l'envoie dans la collection Albert API.
+    Étape cruciale 2: Envoie le document Markdown validé/édité vers la collection Albert API.
     """
     temp_id = str(uuid.uuid4())[:8]
     md_filename = payload.filename if payload.filename.endswith(".md") else f"{payload.filename}.md"
     file_path = os.path.join(settings.CONVERTED_DIR, f"{temp_id}_{md_filename}")
 
-    # Write approved Markdown to file
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(payload.markdown_content)
 
-    # Push to Albert API
     result = await albert_client.upload_document(
         collection_id=payload.collection_id,
         file_path=file_path,
         filename=md_filename
     )
 
-    # Track in local docs meta
     docs = get_local_docs()
     new_doc_meta = {
         "id": result.get("id", temp_id),
         "filename": md_filename,
+        "name": payload.filename,
         "collection_id": payload.collection_id,
         "original_format": payload.original_format,
         "size_chars": len(payload.markdown_content),
@@ -111,10 +149,9 @@ async def ingest_document_to_albert(payload: IngestRequest):
     docs.append(new_doc_meta)
     save_local_docs(docs)
 
-    # Update collection doc count
     cols = get_local_collections()
     for col in cols:
-        if col.get("id") == payload.collection_id or col.get("name") == payload.collection_id:
+        if str(col.get("id")) == str(payload.collection_id) or col.get("name") == payload.collection_id:
             col["document_count"] = col.get("document_count", 0) + 1
     save_local_collections(cols)
 
@@ -123,10 +160,3 @@ async def ingest_document_to_albert(payload: IngestRequest):
         "message": "Document Markdown indexé avec succès dans Albert API",
         "document_metadata": new_doc_meta
     }
-
-@router.get("/")
-async def list_documents(collection_id: Optional[str] = None):
-    docs = get_local_docs()
-    if collection_id:
-        docs = [d for d in docs if d.get("collection_id") == collection_id]
-    return docs

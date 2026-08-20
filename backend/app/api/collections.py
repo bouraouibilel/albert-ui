@@ -35,40 +35,32 @@ class CollectionLink(BaseModel):
 async def list_collections(visibility: Optional[str] = Query("private", description="Filtre par visibilité (private/public/all)")):
     """
     Retourne la liste des collections.
-    - visibility=private (par défaut) : Retourne les collections privées créées ou liées par l'utilisateur.
-    - visibility=all : Retourne l'ensemble des collections (privées + publiques plate-forme).
+    Par défaut (visibility=private), interroge Albert API avec params={"visibility": "private", "limit": 100}
+    pour renvoyer vos collections privées (ex: PASRAU).
     """
-    remote_cols = await albert_client.list_collections()
+    remote_cols = await albert_client.list_collections(visibility=visibility, limit=100)
     local_cols = get_local_collections()
     
     merged = {}
     
-    # 1. Process local user private collections & refresh details from Albert API if possible
-    for c in local_cols:
-        if isinstance(c, dict):
-            col_key = str(c.get("id") or c.get("name") or "")
-            if col_key:
-                c_copy = dict(c)
-                # Tente de rafraîchir les métriques en direct depuis Albert API
-                remote_detail = await albert_client.get_collection(col_key)
-                if remote_detail:
-                    c_copy.update(remote_detail)
-                merged[col_key] = c_copy
-
-    # 2. Process remote collections list
+    # 1. Process remote collections directly from Albert API
     if isinstance(remote_cols, list):
         for r in remote_cols:
             if isinstance(r, dict):
-                col_key = str(r.get("id") or r.get("name") or "")
+                col_key = str(r.get("name") or r.get("id") or "")
                 if col_key:
-                    if col_key in merged:
-                        merged[col_key].update(r)
-                    else:
-                        merged[col_key] = r
-            elif isinstance(r, str):
-                if r not in merged:
-                    merged[r] = {"id": r, "name": r, "description": "", "visibility": "public"}
-            
+                    merged[col_key] = r
+
+    # 2. Merge local collections
+    for c in local_cols:
+        if isinstance(c, dict):
+            col_key = str(c.get("name") or c.get("id") or "")
+            if col_key:
+                if col_key not in merged:
+                    merged[col_key] = c
+                else:
+                    merged[col_key].update(c)
+
     all_cols = list(merged.values())
     
     # Filter logic
@@ -90,7 +82,6 @@ async def list_collections(visibility: Optional[str] = Query("private", descript
 
 @router.post("/")
 async def create_collection(payload: CollectionCreate):
-    """Crée une collection sur Albert API et la sauvegarde localement."""
     result = await albert_client.create_collection(
         name=payload.name,
         description=payload.description or "",
@@ -107,7 +98,6 @@ async def create_collection(payload: CollectionCreate):
         "created_at": result.get("created")
     }
     
-    # Eviter les doublons
     cols = [c for c in cols if str(c.get("id")) != str(new_col["id"]) and c.get("name") != new_col["name"]]
     cols.append(new_col)
     save_local_collections(cols)
@@ -116,9 +106,7 @@ async def create_collection(payload: CollectionCreate):
 
 @router.post("/link")
 async def link_existing_collection(payload: CollectionLink):
-    """Lie/importe une collection existante depuis Albert API par son ID ou son nom."""
     details = await albert_client.get_collection(payload.collection_id_or_name)
-    
     cols = get_local_collections()
     if details:
         col_item = details
