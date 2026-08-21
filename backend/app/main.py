@@ -1,10 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 import os
 from app.core.config import settings
 from app.api import collections, documents, rag
-from app.core.logger import get_recent_logs
+
+# Import résilient du logger
+try:
+    from app.core.logger import get_recent_logs
+except ImportError:
+    def get_recent_logs():
+        return []
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -20,6 +27,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Servir le dossier des images stockées sous /static/images/ pour récupération par Open WebUI / LLM
+app.mount("/static/images", StaticFiles(directory=settings.IMAGE_STORAGE_DIR), name="static_images")
 
 # Inclusion des routeurs API
 app.include_router(collections.router, prefix=settings.API_V1_STR)
@@ -43,7 +53,8 @@ async def health_check():
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,
         "docs_url": "/docs",
-        "albert_api_configured": bool(settings.ALBERT_API_KEY)
+        "albert_api_configured": bool(settings.ALBERT_API_KEY),
+        "image_base_url": settings.IMAGE_BASE_URL
     }
 
 @app.get(f"{settings.API_V1_STR}/logs")

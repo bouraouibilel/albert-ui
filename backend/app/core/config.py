@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     
     UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "storage", "uploads")
     CONVERTED_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "storage", "converted")
+    IMAGE_STORAGE_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "storage", "images")
+    IMAGE_BASE_URL: str = os.getenv("IMAGE_BASE_URL", "http://localhost:8000/static/images")
 
     model_config = SettingsConfigDict(
         env_file=env_path if os.path.exists(env_path) else None,
@@ -30,6 +32,7 @@ settings = Settings()
 if not settings.ALBERT_API_KEY or settings.ALBERT_API_KEY == "ALBERT_API_KEY":
     settings.ALBERT_API_KEY = os.getenv("ALBERT_API_KEY", "")
 
-# Assurance de la création des répertoires
+# Assurance de la création des répertoires de stockage
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 os.makedirs(settings.CONVERTED_DIR, exist_ok=True)
+os.makedirs(settings.IMAGE_STORAGE_DIR, exist_ok=True)

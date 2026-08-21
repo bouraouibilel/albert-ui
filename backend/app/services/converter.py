@@ -1,15 +1,17 @@
 import os
 import base64
 import asyncio
+import uuid
 import pymupdf as fitz
 import docx
 import openpyxl
 from bs4 import BeautifulSoup
 import datetime
 import time
+from app.core.config import settings
 from app.services.albert_client import albert_client
 
-# Import résilient du logger pour éviter tout ModuleNotFoundError
+# Import résilient du logger
 try:
     from app.core.logger import log_event
 except ImportError:
@@ -21,25 +23,26 @@ except ImportError:
 
 class DocumentConverter:
     """
-    Service de conversion universelle de documents (PDF, DOCX, XLSX, TXT, HTML) vers Markdown (.md)
-    avec traçabilité étape par étape et journalisation des appels LLM.
+    Service de conversion universelle de documents (PDF, DOCX, XLSX, TXT, HTML) vers Markdown (.md).
+    Exclut les chaînes Base64 lourdes et génère des URLs d'images nettoyées et paramétrables pour le RAG.
     """
 
     @staticmethod
     async def convert_to_markdown(file_path: str, filename: str, collection_name: str = "") -> dict:
         ext = os.path.splitext(filename)[1].lower()
+        doc_prefix = str(uuid.uuid4())[:8]
         t0 = time.time()
         
-        log_event("CONVERTER", f"📄 Début de la conversion du fichier : '{filename}' (Format: {ext}, Collection Cible: '{collection_name}')")
+        log_event("CONVERTER", f"📄 Début de la conversion : '{filename}' (Format: {ext}, Prefix: {doc_prefix})")
         
         raw_text = ""
         tables_count = 0
         pages_count = 1
 
         if ext == ".pdf":
-            raw_text, pages_count, tables_count = await DocumentConverter._convert_pdf(file_path)
+            raw_text, pages_count, tables_count = await DocumentConverter._convert_pdf(file_path, doc_prefix)
         elif ext in [".docx", ".doc"]:
-            raw_text, tables_count = await DocumentConverter._convert_docx(file_path)
+            raw_text, tables_count = await DocumentConverter._convert_docx(file_path, doc_prefix)
         elif ext in [".xlsx", ".xls"]:
             raw_text, tables_count = DocumentConverter._convert_xlsx(file_path)
         elif ext in [".html", ".htm"]:
@@ -68,7 +71,7 @@ class DocumentConverter:
         final_markdown = metadata_header + cleaned_text
         elapsed = round(time.time() - t0, 2)
 
-        log_event("CONVERTER", f"✨ Conversion terminée avec succès pour '{filename}' en {elapsed}s | Pages: {pages_count}, Tableaux: {tables_count}, Caractères: {len(final_markdown)}")
+        log_event("CONVERTER", f"✨ Conversion terminée pour '{filename}' en {elapsed}s | Pages: {pages_count}, Tableaux: {tables_count}, Caractères: {len(final_markdown)}")
 
         return {
             "markdown_content": final_markdown,
@@ -79,9 +82,9 @@ class DocumentConverter:
         }
 
     @staticmethod
-    async def _convert_pdf(file_path: str) -> tuple[str, int, int]:
+    async def _convert_pdf(file_path: str, doc_prefix: str) -> tuple[str, int, int]:
         """
-        Conversion PDF étape par étape avec logs et extraction multimodale.
+        Conversion PDF avec sauvegarde physique des images et génération d'URL paramétrable.
         """
         doc = fitz.open(file_path)
         pages_count = len(doc)
@@ -117,11 +120,20 @@ class DocumentConverter:
                     
                     if len(image_bytes) < 15000:
                         continue
-                        
+
+                    # Sauvegarde physique du fichier image
+                    img_filename = f"img_{doc_prefix}_p{page_num+1}_{img_index+1}.{img_ext}"
+                    img_file_path = os.path.join(settings.IMAGE_STORAGE_DIR, img_filename)
+                    with open(img_file_path, "wb") as f_img:
+                        f_img.write(image_bytes)
+
+                    # URL propre paramétrable
+                    img_url = f"{settings.IMAGE_BASE_URL.rstrip('/')}/{img_filename}"
+                    md_content.append(f"\n\n![Schéma Technique Page {page_num+1}]({img_url})\n\n")
+
+                    # Analyse multimodale avec le modèle Vision 24B
                     img_b64 = base64.b64encode(image_bytes).decode("utf-8")
-                    log_event("CONVERTER-PDF", f"🖼️ Page {page_num + 1}: Schéma technique détecté ({round(len(image_bytes)/1024, 1)} KB). Envoi vers le LLM Vision...")
-                    
-                    md_content.append(f"\n\n![Schéma Technique Page {page_num+1}](data:image/{img_ext};base64,{img_b64})\n\n")
+                    log_event("CONVERTER-PDF", f"🖼️ Image enregistrée : {img_filename} ({round(len(image_bytes)/1024, 1)} KB). URL: {img_url}")
                     
                     try:
                         vision_analysis = await asyncio.wait_for(
@@ -129,10 +141,10 @@ class DocumentConverter:
                             timeout=8.0
                         )
                         if vision_analysis:
-                            log_event("CONVERTER-PDF", f"✅ Page {page_num + 1}: Analyse LLM & transcription Mermaid.js générées")
+                            log_event("CONVERTER-PDF", f"✅ Diagramme UML transcrit en Mermaid.js")
                             md_content.append(f"> 💡 **Analyse & Transcription du Schéma Technique** :\n\n{vision_analysis}\n\n")
                     except asyncio.TimeoutError:
-                        log_event("CONVERTER-PDF", f"⚠️ Page {page_num + 1}: Timeout (8s) dépassé sur le LLM Vision", level="WARNING")
+                        log_event("CONVERTER-PDF", f"⚠️ Timeout vision (8s) sur image {img_filename}", level="WARNING")
                     
                     diagram_count += 1
                 except Exception as e:
@@ -141,15 +153,16 @@ class DocumentConverter:
         return "".join(md_content), pages_count, tables_count
 
     @staticmethod
-    async def _convert_docx(file_path: str) -> tuple[str, int]:
+    async def _convert_docx(file_path: str, doc_prefix: str) -> tuple[str, int]:
         """
-        Conversion Word (.docx) séquentielle avec logs et extraction d'images.
+        Conversion Word (.docx) avec sauvegarde des images physiques et génération d'URL paramétrables.
         """
         doc = docx.Document(file_path)
         md_content = []
         tables_count = len(doc.tables)
 
-        log_event("CONVERTER-WORD", f"🔍 Parcours séquentiel du document Word ({len(doc.paragraphs)} paragraphes, {tables_count} tableaux)...")
+        log_event("CONVERTER-WORD", f"🔍 Parcours du document Word ({len(doc.paragraphs)} paragraphes)...")
+        img_counter = 0
 
         for element in doc.element.body:
             if element.tag.endswith('p'):
@@ -175,10 +188,18 @@ class DocumentConverter:
                                 image_blob = rel.target_part.blob
                                 if len(image_blob) < 15000:
                                     continue
-                                img_b64 = base64.b64encode(image_blob).decode("utf-8")
-                                log_event("CONVERTER-WORD", f"🖼️ Image Word détectée ({round(len(image_blob)/1024, 1)} KB). Envoi au LLM Vision...")
                                 
-                                md_content.append(f"\n\n![Schéma Technique Word](data:image/png;base64,{img_b64})\n\n")
+                                img_counter += 1
+                                img_filename = f"img_word_{doc_prefix}_{img_counter}.png"
+                                img_file_path = os.path.join(settings.IMAGE_STORAGE_DIR, img_filename)
+                                with open(img_file_path, "wb") as f_img:
+                                    f_img.write(image_blob)
+
+                                img_url = f"{settings.IMAGE_BASE_URL.rstrip('/')}/{img_filename}"
+                                md_content.append(f"\n\n![Schéma Technique Word]({img_url})\n\n")
+
+                                img_b64 = base64.b64encode(image_blob).decode("utf-8")
+                                log_event("CONVERTER-WORD", f"🖼️ Image Word enregistrée : {img_filename} ({round(len(image_blob)/1024, 1)} KB). URL: {img_url}")
                                 
                                 try:
                                     vision_analysis = await asyncio.wait_for(
@@ -186,10 +207,10 @@ class DocumentConverter:
                                         timeout=8.0
                                     )
                                     if vision_analysis:
-                                        log_event("CONVERTER-WORD", f"✅ Description LLM & Code Mermaid.js insérés dans le document")
+                                        log_event("CONVERTER-WORD", f"✅ Diagramme UML Word transcrit en Mermaid.js")
                                         md_content.append(f"> 💡 **Analyse & Transcription du Schéma Technique** :\n\n{vision_analysis}\n\n")
                                 except asyncio.TimeoutError:
-                                    log_event("CONVERTER-WORD", f"⚠️ Timeout (8s) dépassé sur l'image Word", level="WARNING")
+                                    log_event("CONVERTER-WORD", f"⚠️ Timeout vision sur image Word {img_filename}", level="WARNING")
                             except Exception as e:
                                 log_event("CONVERTER-WORD", f"❌ Erreur image Word: {e}", level="ERROR")
 
