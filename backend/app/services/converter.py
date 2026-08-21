@@ -8,7 +8,16 @@ from bs4 import BeautifulSoup
 import datetime
 import time
 from app.services.albert_client import albert_client
-from app.core.logger import log_event
+
+# Import résilient du logger pour éviter tout ModuleNotFoundError
+try:
+    from app.core.logger import log_event
+except ImportError:
+    try:
+        from core.logger import log_event
+    except ImportError:
+        def log_event(category: str, message: str, level: str = "INFO"):
+            print(f"[{category}] {message}")
 
 class DocumentConverter:
     """
@@ -85,19 +94,16 @@ class DocumentConverter:
             page = doc[page_num]
             md_content.append(f"\n\n## Page {page_num + 1}\n\n")
             
-            # 1. Extraction des tableaux
             tabs = page.find_tables()
             if tabs and tabs.tables:
                 found_tab_len = len(tabs.tables)
                 tables_count += found_tab_len
                 log_event("CONVERTER-PDF", f"📊 Page {page_num + 1}: {found_tab_len} tableau(x) détecté(s)")
 
-            # 2. Extraction du texte de la page
             page_text = page.get_text("text").strip()
             if page_text:
                 md_content.append(f"{page_text}\n\n")
 
-            # 3. Extraction des images/schémas techniques (>15Ko)
             image_list = page.get_images(full=True)
             diagram_count = 0
             for img_index, img_info in enumerate(image_list):
@@ -160,7 +166,6 @@ class DocumentConverter:
                     else:
                         md_content.append(f"\n{text}\n")
 
-                # Extraction d'images dans le paragraphe
                 for blip in element.xpath('.//a:blip'):
                     rId = blip.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
                     if rId and rId in doc.part.rels:

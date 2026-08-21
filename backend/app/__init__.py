@@ -1,1 +1,1 @@
-# Package root
+# Package app

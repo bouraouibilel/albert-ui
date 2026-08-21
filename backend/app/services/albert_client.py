@@ -2,7 +2,16 @@ import httpx
 import time
 from typing import Dict, Any, List, Optional
 from app.core.config import settings
-from app.core.logger import log_event
+
+# Import résilient du logger pour éviter tout ModuleNotFoundError
+try:
+    from app.core.logger import log_event
+except ImportError:
+    try:
+        from core.logger import log_event
+    except ImportError:
+        def log_event(category: str, message: str, level: str = "INFO"):
+            print(f"[{category}] {message}")
 
 class AlbertAPIClient:
     """
@@ -32,11 +41,9 @@ class AlbertAPIClient:
         text = content.strip()
         lines = text.splitlines()
 
-        # 1. Retirer la première ligne si le LLM a entouré le tout par ```markdown ou ```text ou ```
         if lines and lines[0].strip().startswith("```") and not lines[0].strip().startswith("```mermaid"):
             lines = lines[1:]
 
-        # 2. Retirer la dernière ligne si c'est un backtick de fermeture externe en surplus
         if lines and lines[-1].strip() == "```":
             open_mermaid_count = sum(1 for l in lines if l.strip().startswith("```mermaid"))
             close_backticks_count = sum(1 for l in lines if l.strip() == "```")
@@ -65,7 +72,7 @@ class AlbertAPIClient:
             "1. Si l'image est une capture d'écran d'application, une interface utilisateur UI, un site web, une photo, une icône ou tout élément qui N'EST PAS un diagramme UML/Architecture :\n"
             "   Réponds UNIQUEMENT sur la première ligne : 'NON_UML' suivi d'une courte légende d'une sentence.\n"
             "2. SI ET SEULEMENT SI l'image est un véritable DIAGRAMME UML (Diagramme de classe, diagramme de séquence, diagramme de composants, flowchart d'architecture) :\n"
-            "   - N'ENTOU RE PAS l'ensemble de ta réponse de triples backticks ```.\n"
+            "   - N'ENTOUR E PAS l'ensemble de ta réponse de triples backticks ```.\n"
             "   - Rédige la description textuelle directement en texte brut Markdown (sans ``` au début).\n"
             "   - Insère ensuite uniquement le bloc du diagramme sous la forme :\n"
             "```mermaid\n"
