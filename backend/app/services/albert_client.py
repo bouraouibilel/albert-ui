@@ -30,6 +30,60 @@ class AlbertAPIClient:
             self.headers["Authorization"] = f"Bearer {self.api_key}"
 
     @staticmethod
+    def _sanitize_mermaid_syntax(code: str) -> str:
+        """
+        Corrige automatiquement les erreurs de syntaxe courantes des LLM dans Mermaid :
+        - Crochets [ ] ou parenthèses non protégés dans les labels de flèches -->|[Label]|
+        - Textes de nœuds non quotés contenant des caractères spéciaux ou de la ponctuation (? / : / [ ] / ( ))
+        """
+        import re
+        lines = code.splitlines()
+        cleaned_lines = []
+        
+        for line in lines:
+            stripped = line.strip()
+            if not stripped or stripped.startswith('%%'):
+                cleaned_lines.append(line)
+                continue
+                
+            # 1. Corriger les labels d'arêtes: -->|[label]| ou -->|label| en -->|"label"|
+            def fix_edge_label(match):
+                arrow = match.group(1)
+                raw_label = match.group(2).strip()
+                # Supprimer les crochets extérieurs si le LLM a mis [texte] dans |...|
+                clean_label = raw_label.strip('[]"\'')
+                safe_label = clean_label.replace('"', "'")
+                return f'{arrow}|"{safe_label}"|'
+                
+            line = re.sub(r'(-->|-.->|==>|--o|--x|-->o|--)\s*\|([^|]+)\|', fix_edge_label, line)
+            
+            # 2. Corriger les nœuds avec crochets non quotés ou crochets internes: A[Nom [suite]] ou A[Mot de passe ?]
+            def fix_node_brackets(match):
+                prefix = match.group(1)
+                content = match.group(2).strip()
+                if not (content.startswith('"') and content.endswith('"')):
+                    safe_content = content.replace('"', "'").replace('[', '(').replace(']', ')')
+                    return f'{prefix}["{safe_content}"]'
+                return match.group(0)
+                
+            line = re.sub(r'(\b[a-zA-Z0-9_\-]+)\[([^\]\n]+)\]', fix_node_brackets, line)
+            
+            # 3. Corriger les parenthèses de nœuds non quotées: A(text) -> A("text")
+            def fix_node_parens(match):
+                prefix = match.group(1)
+                content = match.group(2).strip()
+                if not (content.startswith('"') and content.endswith('"')):
+                    safe_content = content.replace('"', "'")
+                    return f'{prefix}("{safe_content}")'
+                return match.group(0)
+                
+            line = re.sub(r'(\b[a-zA-Z0-9_\-]+)\(([^\)\n]+)\)', fix_node_parens, line)
+            
+            cleaned_lines.append(line)
+            
+        return "\n".join(cleaned_lines)
+
+    @staticmethod
     def _clean_vision_response(content: str) -> str:
         """
         Nettoie la réponse pour s'assurer que la transcription Mermaid est strictement valide,
@@ -80,13 +134,15 @@ class AlbertAPIClient:
             else:
                 return ""
 
+        # Appliquer la correction de syntaxe Mermaid (labels d'arêtes, nœuds quotés, etc.)
+        mermaid_code = AlbertAPIClient._sanitize_mermaid_syntax(mermaid_code)
+
         # Extraire la description textuelle courte préliminaire
         desc_part = text[:mermaid_match.start()].strip()
         desc_part = re.sub(r'^```[\w]*\n?', '', desc_part).strip()
         
         output_blocks = []
         if desc_part and len(desc_part) > 10 and not desc_part.upper().startswith("NON_UML"):
-            # Description textuelle isolée sans balise Markdown cassée
             output_blocks.append(f"**Description du schéma :** {desc_part}")
             
         output_blocks.append("```mermaid\n" + mermaid_code + "\n```")
@@ -114,7 +170,8 @@ class AlbertAPIClient:
             "   Réponds UNIQUEMENT sur la première ligne : 'NON_UML'. Ne génère AUCUN diagramme ni code Mermaid.\n"
             "2. SI ET SEULEMENT SI l'image est un véritable DIAGRAMME TECHNIQUE (Diagramme de classe, diagramme de séquence, diagramme d'activité, flowchart d'architecture) :\n"
             "   - Donne une courte explication textuelle (1 phrase).\n"
-            "   - Insère le code Mermaid commençant OBLIGATOIREMENT par un mot-clé valide (`flowchart TD`, `sequenceDiagram`, `classDiagram`, `stateDiagram-v2`, `erDiagram`) :\n"
+            "   - Insère le code Mermaid commençant OBLIGATOIREMENT par un mot-clé valide (`flowchart TD`, `sequenceDiagram`, `classDiagram`, `stateDiagram-v2`, `erDiagram`).\n"
+            "   - RÈGLE DE SYNTAXE MERMAID : Entoure toujours les textes des nœuds et des transitions avec des guillemets doubles : `A[\"Nom du nœud\"] -->|\"Label flèche\"| B[\"Autre nœud\"]`. N'utilise jamais de crochets non protégés dans les labels de flèches `|...|`.\n"
             "```mermaid\n"
             "[code du diagramme valide]\n"
             "```"

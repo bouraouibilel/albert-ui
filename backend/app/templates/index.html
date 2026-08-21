@@ -749,27 +749,58 @@
             }
         }
 
-        function renderMarkdownPreview(mdText) {
+        function sanitizeMermaidClient(code) {
+            if (!code) return "";
+            return code.split('\n').map(line => {
+                // Corriger -->|[texte]| ou -->|texte| en -->|"texte"|
+                line = line.replace(/(-->|-\.->|==>|--o|--x|-->o|--)\s*\|([^|]+)\|/g, (m, arrow, label) => {
+                    const cleanLabel = label.trim().replace(/^[\["'\]]+|[\["'\]]+$/g, '').replace(/"/g, "'");
+                    return `${arrow}|"${cleanLabel}"|`;
+                });
+                // Corriger les labels de noeuds A[texte avec caractères spéciaux]
+                line = line.replace(/\b([a-zA-Z0-9_\-]+)\[([^\]\n]+)\]/g, (m, id, text) => {
+                    const cleanText = text.trim();
+                    if (!cleanText.startsWith('"') || !cleanText.endsWith('"')) {
+                        const safe = cleanText.replace(/"/g, "'").replace(/\[/g, '(').replace(/\]/g, ')');
+                        return `${id}["${safe}"]`;
+                    }
+                    return m;
+                });
+                return line;
+            }).join('\n');
+        }
+
+        async function renderMarkdownPreview(mdText) {
             const previewArea = document.getElementById('view-preview');
             previewArea.innerHTML = marked.parse(mdText || "");
 
-            // Isolation et rendu des diagrammes Mermaid
+            // Isolation et rendu sécurisé des diagrammes Mermaid
             if (window.mermaid) {
-                try {
-                    const codeBlocks = previewArea.querySelectorAll('code.language-mermaid');
-                    codeBlocks.forEach((block, idx) => {
-                        const pre = block.parentElement;
-                        const container = document.createElement('div');
-                        container.className = 'my-6 p-4 bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto text-center shadow-lg';
-                        const mermaidDiv = document.createElement('div');
-                        mermaidDiv.className = 'mermaid';
-                        mermaidDiv.textContent = block.textContent;
-                        container.appendChild(mermaidDiv);
-                        pre.replaceWith(container);
-                    });
-                    mermaid.run();
-                } catch (e) {
-                    console.warn("Rendu Mermaid avertissement :", e);
+                const codeBlocks = previewArea.querySelectorAll('code.language-mermaid');
+                for (let idx = 0; idx < codeBlocks.length; idx++) {
+                    const block = codeBlocks[idx];
+                    const pre = block.parentElement;
+                    const rawCode = block.textContent;
+                    const sanitizedCode = sanitizeMermaidClient(rawCode);
+                    const container = document.createElement('div');
+                    container.className = 'my-6 p-4 bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto text-center shadow-lg';
+                    
+                    try {
+                        const id = `mermaid_diag_${Date.now()}_${idx}`;
+                        const renderResult = await mermaid.render(id, sanitizedCode);
+                        container.innerHTML = renderResult.svg;
+                    } catch (err) {
+                        console.warn("Erreur de rendu Mermaid:", err);
+                        container.innerHTML = `
+                            <div class="p-3 bg-slate-950 border border-slate-800 rounded-lg text-left text-xs">
+                                <div class="text-blue-400 font-semibold mb-1 flex items-center gap-1.5">
+                                    <span>📊 Diagramme Technique</span>
+                                </div>
+                                <pre class="font-mono text-[11px] text-slate-300 bg-slate-900/80 p-3 rounded-lg overflow-x-auto">${rawCode}</pre>
+                            </div>
+                        `;
+                    }
+                    pre.replaceWith(container);
                 }
             }
         }
