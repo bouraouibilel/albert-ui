@@ -161,3 +161,39 @@ async def ingest_document_to_albert(payload: IngestRequest):
         "message": "Document Markdown indexé avec succès dans Albert API",
         "document_metadata": new_doc_meta
     }
+
+@router.delete("/{document_id}")
+async def delete_document(document_id: str):
+    """
+    Supprime un document d'une collection dans Albert API et nettoie les métadonnées locales.
+    """
+    # 1. Appel Albert API pour supprimer le document distant
+    await albert_client.delete_document(document_id)
+
+    # 2. Suppression dans les métadonnées locales documents_meta.json
+    docs = get_local_docs()
+    target_doc = None
+    remaining_docs = []
+    for d in docs:
+        if str(d.get("id")) == str(document_id) or str(d.get("name")) == str(document_id) or str(d.get("filename")) == str(document_id):
+            target_doc = d
+        else:
+            remaining_docs.append(d)
+    save_local_docs(remaining_docs)
+
+    # 3. Décrémentation du compteur de documents dans les collections locales
+    if target_doc and target_doc.get("collection_id"):
+        target_col_id = str(target_doc.get("collection_id"))
+        cols = get_local_collections()
+        for col in cols:
+            if str(col.get("id")) == target_col_id or str(col.get("name")) == target_col_id:
+                curr_count = col.get("document_count", col.get("documents", 1))
+                col["document_count"] = max(0, curr_count - 1)
+        save_local_collections(cols)
+
+    return {
+        "status": "success",
+        "message": f"Document {document_id} supprimé avec succès",
+        "deleted_id": document_id
+    }
+

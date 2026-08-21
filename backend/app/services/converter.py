@@ -128,23 +128,23 @@ class DocumentConverter:
                         f_img.write(image_bytes)
 
                     # URL propre paramétrable
-                    img_url = f"{settings.IMAGE_BASE_URL.rstrip('/')}/{img_filename}"
                     md_content.append(f"\n\n![Schéma Technique Page {page_num+1}]({img_url})\n\n")
 
                     # Analyse multimodale avec le modèle Vision 24B
                     img_b64 = base64.b64encode(image_bytes).decode("utf-8")
+                    img_mime = f"image/{'jpeg' if img_ext.lower() in ['jpg', 'jpeg'] else img_ext.lower()}"
                     log_event("CONVERTER-PDF", f"🖼️ Image enregistrée : {img_filename} ({round(len(image_bytes)/1024, 1)} KB). URL: {img_url}")
                     
                     try:
                         vision_analysis = await asyncio.wait_for(
-                            albert_client.describe_image(img_b64),
-                            timeout=8.0
+                            albert_client.describe_image(img_b64, mime_type=img_mime),
+                            timeout=20.0
                         )
                         if vision_analysis:
                             log_event("CONVERTER-PDF", f"✅ Diagramme UML transcrit en Mermaid.js")
                             md_content.append(f"> 💡 **Analyse & Transcription du Schéma Technique** :\n\n{vision_analysis}\n\n")
                     except asyncio.TimeoutError:
-                        log_event("CONVERTER-PDF", f"⚠️ Timeout vision (8s) sur image {img_filename}", level="WARNING")
+                        log_event("CONVERTER-PDF", f"⚠️ Timeout vision (20s) sur image {img_filename}", level="WARNING")
                     
                     diagram_count += 1
                 except Exception as e:
@@ -185,12 +185,19 @@ class DocumentConverter:
                         rel = doc.part.rels[rId]
                         if "image" in rel.target_ref:
                             try:
+                                raw_ext = os.path.splitext(rel.target_ref)[1].lower().lstrip('.')
+                                # Les formats vectoriels WMF / EMF / SVG ne sont pas pris en charge par les modèles LLM Vision
+                                is_vector = raw_ext in ['emf', 'wmf', 'svg']
+                                
                                 image_blob = rel.target_part.blob
                                 if len(image_blob) < 15000:
                                     continue
                                 
+                                img_ext = raw_ext if raw_ext in ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'] else 'png'
+                                img_mime = f"image/{'jpeg' if img_ext in ['jpg', 'jpeg'] else img_ext}"
+                                
                                 img_counter += 1
-                                img_filename = f"img_word_{doc_prefix}_{img_counter}.png"
+                                img_filename = f"img_word_{doc_prefix}_{img_counter}.{img_ext}"
                                 img_file_path = os.path.join(settings.IMAGE_STORAGE_DIR, img_filename)
                                 with open(img_file_path, "wb") as f_img:
                                     f_img.write(image_blob)
@@ -198,19 +205,22 @@ class DocumentConverter:
                                 img_url = f"{settings.IMAGE_BASE_URL.rstrip('/')}/{img_filename}"
                                 md_content.append(f"\n\n![Schéma Technique Word]({img_url})\n\n")
 
-                                img_b64 = base64.b64encode(image_blob).decode("utf-8")
-                                log_event("CONVERTER-WORD", f"🖼️ Image Word enregistrée : {img_filename} ({round(len(image_blob)/1024, 1)} KB). URL: {img_url}")
-                                
-                                try:
-                                    vision_analysis = await asyncio.wait_for(
-                                        albert_client.describe_image(img_b64),
-                                        timeout=8.0
-                                    )
-                                    if vision_analysis:
-                                        log_event("CONVERTER-WORD", f"✅ Diagramme UML Word transcrit en Mermaid.js")
-                                        md_content.append(f"> 💡 **Analyse & Transcription du Schéma Technique** :\n\n{vision_analysis}\n\n")
-                                except asyncio.TimeoutError:
-                                    log_event("CONVERTER-WORD", f"⚠️ Timeout vision sur image Word {img_filename}", level="WARNING")
+                                if not is_vector:
+                                    img_b64 = base64.b64encode(image_blob).decode("utf-8")
+                                    log_event("CONVERTER-WORD", f"🖼️ Image Word enregistrée : {img_filename} ({round(len(image_blob)/1024, 1)} KB). URL: {img_url}")
+                                    
+                                    try:
+                                        vision_analysis = await asyncio.wait_for(
+                                            albert_client.describe_image(img_b64, mime_type=img_mime),
+                                            timeout=20.0
+                                        )
+                                        if vision_analysis:
+                                            log_event("CONVERTER-WORD", f"✅ Diagramme UML Word transcrit en Mermaid.js")
+                                            md_content.append(f"> 💡 **Analyse & Transcription du Schéma Technique** :\n\n{vision_analysis}\n\n")
+                                    except asyncio.TimeoutError:
+                                        log_event("CONVERTER-WORD", f"⚠️ Timeout vision (20s) sur image Word {img_filename}", level="WARNING")
+                                else:
+                                    log_event("CONVERTER-WORD", f"🖼️ Image vectorielle ({raw_ext.upper()}) enregistrée sans appel LLM Vision : {img_filename}")
                             except Exception as e:
                                 log_event("CONVERTER-WORD", f"❌ Erreur image Word: {e}", level="ERROR")
 

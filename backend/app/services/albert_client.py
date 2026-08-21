@@ -56,7 +56,8 @@ class AlbertAPIClient:
     async def describe_image(
         self, 
         image_base64: str, 
-        prompt: Optional[str] = None
+        prompt: Optional[str] = None,
+        mime_type: str = "image/png"
     ) -> str:
         """
         Appelle le modèle LLM Vision 24B d'Albert API (mistral-small-3-2-24b-instruct-2506).
@@ -89,7 +90,7 @@ class AlbertAPIClient:
                     "role": "user",
                     "content": [
                         {"type": "text", "text": user_prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
+                        {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}}
                     ]
                 }
             ],
@@ -118,7 +119,8 @@ class AlbertAPIClient:
                         log_event("LLM-VISION", f"✅ Diagramme UML détecté et transcrit proprement en Mermaid.js en {elapsed}s | Tokens: {tokens_used}")
                         return cleaned_content
                 else:
-                    log_event("LLM-VISION", f"⚠️ Erreur HTTP {response.status_code} d'Albert API Vision ({elapsed}s)", level="WARNING")
+                    err_preview = response.text[:200]
+                    log_event("LLM-VISION", f"⚠️ Erreur HTTP {response.status_code} d'Albert API Vision ({elapsed}s) : {err_preview}", level="WARNING")
                 return ""
             except Exception as e:
                 log_event("LLM-VISION", f"❌ Erreur lors de l'appel LLM Vision: {e}", level="ERROR")
@@ -192,6 +194,21 @@ class AlbertAPIClient:
                 response = await client.delete(f"{self.base_url}/collections/{collection_id}")
                 return response.status_code in [200, 204]
             except Exception:
+                return True
+
+    async def delete_document(self, document_id: str) -> bool:
+        """Supprime un document sur Albert API."""
+        log_event("ALBERT-API", f"🗑️ Requête DELETE /v1/documents/{document_id}...")
+        async with httpx.AsyncClient(headers=self.headers, timeout=60.0) as client:
+            try:
+                response = await client.delete(f"{self.base_url}/documents/{document_id}")
+                if response.status_code in [200, 204]:
+                    log_event("ALBERT-API", f"✅ Document #{document_id} supprimé avec succès sur Albert API")
+                    return True
+                log_event("ALBERT-API", f"⚠️ DELETE /v1/documents/{document_id} HTTP {response.status_code}", level="WARNING")
+                return response.status_code == 404
+            except Exception as e:
+                log_event("ALBERT-API", f"❌ Erreur delete_document({document_id}): {e}", level="ERROR")
                 return True
 
     async def list_documents(self, collection_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:

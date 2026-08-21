@@ -498,22 +498,32 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-800/60">
-                            ${docs.map(d => `
+                            ${docs.map(d => {
+                                const docTitle = (d.name || d.filename || '').replace(/'/g, "\\'");
+                                const safeColName = colName.replace(/'/g, "\\'");
+                                return `
                                 <tr class="hover:bg-slate-950/40">
                                     <td class="p-3 font-mono text-blue-400">${d.id}</td>
                                     <td class="p-3 font-semibold text-white">${d.name || d.filename}</td>
                                     <td class="p-3"><span class="px-2 py-0.5 bg-emerald-950 border border-emerald-800 text-emerald-300 rounded-full font-mono text-[10px]">${d.chunks || 0} chunks</span></td>
                                     <td class="p-3 text-slate-400">${( (d.size || d.size_chars || 0) / 1024 ).toFixed(1)} KB</td>
                                     <td class="p-3 text-right">
-                                        <button onclick="openChunksModal('${d.id}', '${d.name || d.filename}')" class="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 rounded-lg text-[11px] font-medium transition">
-                                            Inspecter Chunks
-                                        </button>
+                                        <div class="flex items-center justify-end gap-2">
+                                            <button onclick="openChunksModal('${d.id}', '${docTitle}')" class="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5" title="Inspecter les chunks">
+                                                <i data-lucide="layers" class="w-3.5 h-3.5"></i> Inspecter Chunks
+                                            </button>
+                                            <button onclick="deleteDocument('${d.id}', '${docTitle}', '${colId}', '${safeColName}')" class="p-1.5 bg-rose-950/40 hover:bg-rose-600/20 text-rose-400 hover:text-rose-300 border border-rose-900/40 rounded-lg transition flex items-center justify-center" title="Supprimer ce document de la collection">
+                                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
-                            `).join('')}
+                                `;
+                            }).join('')}
                         </tbody>
                     </table>
                 `;
+                lucide.createIcons();
             } catch (err) {
                 container.innerHTML = '<p class="text-xs text-rose-400 py-6 text-center">Erreur lors de la récupération des documents.</p>';
             }
@@ -645,6 +655,29 @@
             if (!confirm("Supprimer cette collection ?")) return;
             await fetch(`${API_BASE}/collections/${colId}`, { method: 'DELETE' });
             loadCollections();
+        }
+
+        async function deleteDocument(docId, docName, colId, colName) {
+            const displayName = docName || docId;
+            if (!confirm(`Supprimer le document "${displayName}" de la collection ?`)) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/documents/${docId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+
+                // Rafraîchit les documents de la collection actuellement affichée
+                openDocsModal(colId, colName);
+                // Rafraîchit les collections et leurs compteurs
+                loadCollections();
+            } catch (err) {
+                console.error("Erreur lors de la suppression du document:", err);
+                alert("Erreur lors de la suppression du document.");
+            }
         }
 
         // --- CONVERSION LOGIC ---
