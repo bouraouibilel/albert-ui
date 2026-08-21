@@ -32,26 +32,66 @@ class AlbertAPIClient:
     @staticmethod
     def _clean_vision_response(content: str) -> str:
         """
-        Nettoie la réponse pour s'assurer que la description textuelle ne commence PAS par des backticks (```),
-        ce qui perturberait le rendu du bloc ```mermaid qui suit.
+        Nettoie la réponse pour s'assurer que la transcription Mermaid est strictement valide,
+        proprement séparée et sans syntaxe parasite pouvant causer des chevauchements dans le Markdown.
         """
         if not content:
             return ""
         
         text = content.strip()
-        lines = text.splitlines()
+        
+        # 1. Vérifier si le modèle a renvoyé NON_UML ou si c'est une capture d'écran
+        if text.upper().startswith("NON_UML") or "NON_UML" in text[:40].upper():
+            return ""
+            
+        # 2. Chercher le bloc ```mermaid ... ``` ou ``` ... ```
+        import re
+        mermaid_match = re.search(r'```(?:mermaid)?\s*\n(.*?)\n```', text, re.DOTALL | re.IGNORECASE)
+        
+        if not mermaid_match:
+            # Aucun bloc de code valide trouvé
+            return ""
+            
+        mermaid_code = mermaid_match.group(1).strip()
+        
+        # Mots-clés Mermaid valides officiels
+        valid_keywords = (
+            "graph ", "graph\n", "graph\r\n",
+            "flowchart ", "flowchart\n", "flowchart\r\n",
+            "sequencediagram", "classdiagram", "statediagram", "statediagram-v2",
+            "erdiagram", "mindmap", "gantt", "pie", "gitgraph", "c4context", "c4container",
+            "requirementdiagram", "architecture-beta", "timeline", "journey"
+        )
+        
+        # Trouver la première ligne effective (non-commentaire et non-vide)
+        code_lines = [l.strip() for l in mermaid_code.splitlines() if l.strip() and not l.strip().startswith("%%")]
+        if not code_lines:
+            return ""
+            
+        first_line = code_lines[0].lower()
+        
+        # Rejeter les fausses syntaxes PlantUML / pseudo-code d'écran UI (skinparam, @startuml, rectangle as, group as, inputField)
+        if any(bad in first_line for bad in ["skinparam", "@startuml", "rectangle ", "group ", "inputfield", "button "]):
+            return ""
+            
+        if not any(first_line.startswith(k) for k in valid_keywords):
+            if "-->" in mermaid_code or "---" in mermaid_code or "-.->" in mermaid_code:
+                mermaid_code = "flowchart TD\n" + mermaid_code
+            else:
+                return ""
 
-        if lines and lines[0].strip().startswith("```") and not lines[0].strip().startswith("```mermaid"):
-            lines = lines[1:]
-
-        if lines and lines[-1].strip() == "```":
-            open_mermaid_count = sum(1 for l in lines if l.strip().startswith("```mermaid"))
-            close_backticks_count = sum(1 for l in lines if l.strip() == "```")
-            if close_backticks_count > open_mermaid_count:
-                lines = lines[:-1]
-
-        cleaned_text = "\n".join(lines).strip()
-        return cleaned_text
+        # Extraire la description textuelle courte préliminaire
+        desc_part = text[:mermaid_match.start()].strip()
+        desc_part = re.sub(r'^```[\w]*\n?', '', desc_part).strip()
+        
+        output_blocks = []
+        if desc_part and len(desc_part) > 10 and not desc_part.upper().startswith("NON_UML"):
+            # Description textuelle isolée sans balise Markdown cassée
+            output_blocks.append(f"**Description du schéma :** {desc_part}")
+            
+        output_blocks.append("```mermaid\n" + mermaid_code + "\n```")
+        
+        return "\n\n".join(output_blocks)
 
     async def describe_image(
         self, 
@@ -70,14 +110,13 @@ class AlbertAPIClient:
         system_prompt = (
             "Examine très attentivement l'image fournie.\n"
             "RÈGLE STRICTE DE CLASSIFICATION ET DE FORMATAGE :\n"
-            "1. Si l'image est une capture d'écran d'application, une interface utilisateur UI, un site web, une photo, une icône ou tout élément qui N'EST PAS un diagramme UML/Architecture :\n"
-            "   Réponds UNIQUEMENT sur la première ligne : 'NON_UML' suivi d'une courte légende d'une sentence.\n"
-            "2. SI ET SEULEMENT SI l'image est un véritable DIAGRAMME UML (Diagramme de classe, diagramme de séquence, diagramme de composants, flowchart d'architecture) :\n"
-            "   - N'ENTOUR E PAS l'ensemble de ta réponse de triples backticks ```.\n"
-            "   - Rédige la description textuelle directement en texte brut Markdown (sans ``` au début).\n"
-            "   - Insère ensuite uniquement le bloc du diagramme sous la forme :\n"
+            "1. Si l'image est une capture d'écran d'application, une interface web, un formulaire, un tableau, une photo, une icône ou TOUT élément qui n'est pas un diagramme UML/Flowchart :\n"
+            "   Réponds UNIQUEMENT sur la première ligne : 'NON_UML'. Ne génère AUCUN diagramme ni code Mermaid.\n"
+            "2. SI ET SEULEMENT SI l'image est un véritable DIAGRAMME TECHNIQUE (Diagramme de classe, diagramme de séquence, diagramme d'activité, flowchart d'architecture) :\n"
+            "   - Donne une courte explication textuelle (1 phrase).\n"
+            "   - Insère le code Mermaid commençant OBLIGATOIREMENT par un mot-clé valide (`flowchart TD`, `sequenceDiagram`, `classDiagram`, `stateDiagram-v2`, `erDiagram`) :\n"
             "```mermaid\n"
-            "[code du diagramme]\n"
+            "[code du diagramme valide]\n"
             "```"
         )
 

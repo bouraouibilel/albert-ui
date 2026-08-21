@@ -1,4 +1,5 @@
 import os
+import re
 import base64
 import asyncio
 import uuid
@@ -28,21 +29,39 @@ class DocumentConverter:
     """
 
     @staticmethod
+    def _sanitize_path_segment(name: str) -> str:
+        """Nettoie une chaîne pour former un nom de dossier sûr pour le système de fichiers et les URLs."""
+        clean = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', str(name or "")).strip('._-')
+        return clean or "default"
+
+    @staticmethod
     async def convert_to_markdown(file_path: str, filename: str, collection_name: str = "") -> dict:
         ext = os.path.splitext(filename)[1].lower()
         doc_prefix = str(uuid.uuid4())[:8]
         t0 = time.time()
         
-        log_event("CONVERTER", f"📄 Début de la conversion : '{filename}' (Format: {ext}, Prefix: {doc_prefix})")
+        # Structure de répertoire pour les images : <collection_id_ou_nom>/<nom_document>
+        col_folder = DocumentConverter._sanitize_path_segment(collection_name or "default")
+        doc_base_name = os.path.splitext(filename)[0]
+        doc_folder = DocumentConverter._sanitize_path_segment(doc_base_name)
+        
+        # Dossier physique : storage/images/<col_folder>/<doc_folder>/
+        img_dir = os.path.join(settings.IMAGE_STORAGE_DIR, col_folder, doc_folder)
+        os.makedirs(img_dir, exist_ok=True)
+        
+        # Préfixe d'URL : http://.../static/images/<col_folder>/<doc_folder>
+        img_url_base = f"{settings.IMAGE_BASE_URL.rstrip('/')}/{col_folder}/{doc_folder}"
+        
+        log_event("CONVERTER", f"📄 Début de la conversion : '{filename}' (Format: {ext}, Collection: '{col_folder}', Prefix: {doc_prefix})")
         
         raw_text = ""
         tables_count = 0
         pages_count = 1
 
         if ext == ".pdf":
-            raw_text, pages_count, tables_count = await DocumentConverter._convert_pdf(file_path, doc_prefix)
+            raw_text, pages_count, tables_count = await DocumentConverter._convert_pdf(file_path, doc_prefix, img_dir, img_url_base)
         elif ext in [".docx", ".doc"]:
-            raw_text, tables_count = await DocumentConverter._convert_docx(file_path, doc_prefix)
+            raw_text, tables_count = await DocumentConverter._convert_docx(file_path, doc_prefix, img_dir, img_url_base)
         elif ext in [".xlsx", ".xls"]:
             raw_text, tables_count = DocumentConverter._convert_xlsx(file_path)
         elif ext in [".html", ".htm"]:
@@ -82,9 +101,9 @@ class DocumentConverter:
         }
 
     @staticmethod
-    async def _convert_pdf(file_path: str, doc_prefix: str) -> tuple[str, int, int]:
+    async def _convert_pdf(file_path: str, doc_prefix: str, img_dir: str, img_url_base: str) -> tuple[str, int, int]:
         """
-        Conversion PDF avec sauvegarde physique des images et génération d'URL paramétrable.
+        Conversion PDF avec sauvegarde physique des images dans storage/images/<col>/<doc>/ et URLs hiérarchisées.
         """
         doc = fitz.open(file_path)
         pages_count = len(doc)
@@ -121,13 +140,14 @@ class DocumentConverter:
                     if len(image_bytes) < 15000:
                         continue
 
-                    # Sauvegarde physique du fichier image
-                    img_filename = f"img_{doc_prefix}_p{page_num+1}_{img_index+1}.{img_ext}"
-                    img_file_path = os.path.join(settings.IMAGE_STORAGE_DIR, img_filename)
+                    # Sauvegarde physique du fichier image sous storage/images/<col>/<doc>/
+                    img_filename = f"img_p{page_num+1}_{img_index+1}.{img_ext}"
+                    img_file_path = os.path.join(img_dir, img_filename)
                     with open(img_file_path, "wb") as f_img:
                         f_img.write(image_bytes)
 
-                    # URL propre paramétrable
+                    # URL propre hiérarchisée
+                    img_url = f"{img_url_base}/{img_filename}"
                     md_content.append(f"\n\n![Schéma Technique Page {page_num+1}]({img_url})\n\n")
 
                     # Analyse multimodale avec le modèle Vision 24B
@@ -142,7 +162,7 @@ class DocumentConverter:
                         )
                         if vision_analysis:
                             log_event("CONVERTER-PDF", f"✅ Diagramme UML transcrit en Mermaid.js")
-                            md_content.append(f"> 💡 **Analyse & Transcription du Schéma Technique** :\n\n{vision_analysis}\n\n")
+                            md_content.append(f"\n\n{vision_analysis}\n\n")
                     except asyncio.TimeoutError:
                         log_event("CONVERTER-PDF", f"⚠️ Timeout vision (20s) sur image {img_filename}", level="WARNING")
                     
@@ -153,9 +173,9 @@ class DocumentConverter:
         return "".join(md_content), pages_count, tables_count
 
     @staticmethod
-    async def _convert_docx(file_path: str, doc_prefix: str) -> tuple[str, int]:
+    async def _convert_docx(file_path: str, doc_prefix: str, img_dir: str, img_url_base: str) -> tuple[str, int]:
         """
-        Conversion Word (.docx) avec sauvegarde des images physiques et génération d'URL paramétrables.
+        Conversion Word (.docx) avec sauvegarde des images dans storage/images/<col>/<doc>/ et URLs hiérarchisées.
         """
         doc = docx.Document(file_path)
         md_content = []
@@ -186,7 +206,6 @@ class DocumentConverter:
                         if "image" in rel.target_ref:
                             try:
                                 raw_ext = os.path.splitext(rel.target_ref)[1].lower().lstrip('.')
-                                # Les formats vectoriels WMF / EMF / SVG ne sont pas pris en charge par les modèles LLM Vision
                                 is_vector = raw_ext in ['emf', 'wmf', 'svg']
                                 
                                 image_blob = rel.target_part.blob
@@ -197,12 +216,12 @@ class DocumentConverter:
                                 img_mime = f"image/{'jpeg' if img_ext in ['jpg', 'jpeg'] else img_ext}"
                                 
                                 img_counter += 1
-                                img_filename = f"img_word_{doc_prefix}_{img_counter}.{img_ext}"
-                                img_file_path = os.path.join(settings.IMAGE_STORAGE_DIR, img_filename)
+                                img_filename = f"img_{img_counter}.{img_ext}"
+                                img_file_path = os.path.join(img_dir, img_filename)
                                 with open(img_file_path, "wb") as f_img:
                                     f_img.write(image_blob)
 
-                                img_url = f"{settings.IMAGE_BASE_URL.rstrip('/')}/{img_filename}"
+                                img_url = f"{img_url_base}/{img_filename}"
                                 md_content.append(f"\n\n![Schéma Technique Word]({img_url})\n\n")
 
                                 if not is_vector:
@@ -216,7 +235,7 @@ class DocumentConverter:
                                         )
                                         if vision_analysis:
                                             log_event("CONVERTER-WORD", f"✅ Diagramme UML Word transcrit en Mermaid.js")
-                                            md_content.append(f"> 💡 **Analyse & Transcription du Schéma Technique** :\n\n{vision_analysis}\n\n")
+                                            md_content.append(f"\n\n{vision_analysis}\n\n")
                                     except asyncio.TimeoutError:
                                         log_event("CONVERTER-WORD", f"⚠️ Timeout vision (20s) sur image Word {img_filename}", level="WARNING")
                                 else:

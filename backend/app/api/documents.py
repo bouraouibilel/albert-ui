@@ -191,6 +191,18 @@ async def delete_document(document_id: str):
                 col["document_count"] = max(0, curr_count - 1)
         save_local_collections(cols)
 
+    # 4. Nettoyage éventuel du dossier d'images associées au document
+    if target_doc:
+        import shutil
+        col_folder = DocumentConverter._sanitize_path_segment(target_doc.get("collection_id") or "default")
+        doc_folder = DocumentConverter._sanitize_path_segment(os.path.splitext(target_doc.get("filename", ""))[0])
+        doc_img_dir = os.path.join(settings.IMAGE_STORAGE_DIR, col_folder, doc_folder)
+        if os.path.exists(doc_img_dir):
+            try:
+                shutil.rmtree(doc_img_dir)
+            except Exception:
+                pass
+
     return {
         "status": "success",
         "message": f"Document {document_id} supprimé avec succès",
