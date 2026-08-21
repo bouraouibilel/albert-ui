@@ -31,17 +31,23 @@
                 </div>
             </div>
             
-            <nav class="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800/80">
-                <button onclick="switchTab('collections')" id="tab-btn-collections" class="px-4 py-2 text-sm font-medium rounded-lg transition-all bg-blue-600 text-white shadow-sm flex items-center gap-2">
-                    <i data-lucide="folder-kanban" class="w-4 h-4"></i> Collections
+            <div class="flex items-center gap-3">
+                <nav class="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800/80">
+                    <button onclick="switchTab('collections')" id="tab-btn-collections" class="px-4 py-2 text-sm font-medium rounded-lg transition-all bg-blue-600 text-white shadow-sm flex items-center gap-2">
+                        <i data-lucide="folder-kanban" class="w-4 h-4"></i> Collections
+                    </button>
+                    <button onclick="switchTab('converter')" id="tab-btn-converter" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2">
+                        <i data-lucide="file-code" class="w-4 h-4"></i> Studio Conversion .MD
+                    </button>
+                    <button onclick="switchTab('sandbox')" id="tab-btn-sandbox" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2">
+                        <i data-lucide="flask-conical" class="w-4 h-4"></i> RAG Sandbox
+                    </button>
+                </nav>
+
+                <button onclick="openLogsModal()" class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-semibold rounded-xl transition flex items-center gap-2" title="Journal en temps réel des appels LLM et conversions">
+                    <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i> Logs LLM & API
                 </button>
-                <button onclick="switchTab('converter')" id="tab-btn-converter" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2">
-                    <i data-lucide="file-code" class="w-4 h-4"></i> Studio Conversion .MD
-                </button>
-                <button onclick="switchTab('sandbox')" id="tab-btn-sandbox" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2">
-                    <i data-lucide="flask-conical" class="w-4 h-4"></i> RAG Sandbox
-                </button>
-            </nav>
+            </div>
         </div>
     </header>
 
@@ -114,17 +120,23 @@
                             <input type="file" id="file-input" onchange="handleFileSelect(event)" class="hidden" accept=".pdf,.docx,.doc,.xlsx,.xls,.html,.txt,.md">
                         </div>
 
-                        <div id="file-info" class="hidden mt-4 p-4 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
-                            <div class="flex items-center gap-3 overflow-hidden">
-                                <i data-lucide="file-text" class="w-5 h-5 text-blue-400 shrink-0"></i>
-                                <div class="truncate">
-                                    <p id="file-name" class="text-xs font-semibold text-white truncate"></p>
-                                    <p id="file-size" class="text-[10px] text-slate-400"></p>
+                        <div id="file-info" class="hidden mt-4 p-4 bg-slate-950 rounded-xl border border-slate-800 flex flex-col gap-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3 overflow-hidden">
+                                    <i data-lucide="file-text" class="w-5 h-5 text-blue-400 shrink-0"></i>
+                                    <div class="truncate">
+                                        <p id="file-name" class="text-xs font-semibold text-white truncate"></p>
+                                        <p id="file-size" class="text-[10px] text-slate-400"></p>
+                                    </div>
                                 </div>
+                                <button onclick="startConversion()" id="convert-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition shrink-0 flex items-center gap-2">
+                                    <i data-lucide="arrow-right-left" class="w-3.5 h-3.5"></i> Convertir en .md
+                                </button>
                             </div>
-                            <button onclick="startConversion()" id="convert-btn" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition shrink-0">
-                                Convertir en .md
-                            </button>
+                            <div id="conversion-loader-status" class="hidden p-3 bg-blue-950/40 border border-blue-800/40 rounded-lg text-xs text-blue-300 flex items-center gap-2">
+                                <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-blue-400 shrink-0"></i>
+                                <span>Conversion & analyse multimodale des schémas avec Albert API...</span>
+                            </div>
                         </div>
                     </div>
 
@@ -206,7 +218,7 @@
 
                         <div>
                             <label class="block text-sm font-medium text-slate-300 mb-2">Question de test</label>
-                            <textarea id="sandbox-query" rows="3" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Ex: Quelles sont les exclusions de code Sonar ?"></textarea>
+                            <textarea id="sandbox-query" rows="3" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Ex: Quelles sont les exclusions Sonar ?"></textarea>
                         </div>
 
                         <button onclick="runRAGTest()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl transition shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2">
@@ -231,6 +243,33 @@
         </section>
 
     </main>
+
+    <!-- Modal Logs LLM & API en direct -->
+    <div id="modal-logs" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-4xl space-y-4 shadow-2xl flex flex-col max-h-[85vh]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i data-lucide="terminal" class="w-5 h-5 text-emerald-400"></i> Journal des Appels LLM & Étapes de Conversion
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Traçabilité en temps réel des requêtes réseau Albert API, modèles de vision et Reranker.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="fetchLiveLogs()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 rounded-lg flex items-center gap-1.5">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Rafrachir
+                    </button>
+                    <button onclick="closeLogsModal()" class="text-slate-400 hover:text-white p-1">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Console Content -->
+            <div class="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs overflow-y-auto custom-scrollbar space-y-2" id="logs-console-container">
+                <p class="text-slate-500">Chargement du journal...</p>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Documents de la Collection -->
     <div id="modal-docs" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
@@ -521,6 +560,45 @@
             document.getElementById('modal-chunks').classList.add('hidden');
         }
 
+        async function openLogsModal() {
+            document.getElementById('modal-logs').classList.remove('hidden');
+            fetchLiveLogs();
+        }
+
+        function closeLogsModal() {
+            document.getElementById('modal-logs').classList.add('hidden');
+        }
+
+        async function fetchLiveLogs() {
+            const container = document.getElementById('logs-console-container');
+            try {
+                const res = await fetch(`${API_BASE}/logs`);
+                const logs = await res.json();
+
+                if (!logs || logs.length === 0) {
+                    container.innerHTML = '<p class="text-slate-500 py-6 text-center">Aucun log enregistré pour le moment.</p>';
+                    return;
+                }
+
+                container.innerHTML = logs.map(l => {
+                    let color = "text-slate-300";
+                    if (l.level === "ERROR") color = "text-rose-400 font-semibold";
+                    else if (l.level === "WARNING") color = "text-amber-400";
+                    else if (l.category.includes("LLM")) color = "text-emerald-400";
+                    else if (l.category.includes("CONVERTER")) color = "text-blue-400";
+
+                    return `<div class="${color} py-0.5 border-b border-slate-900/60 flex items-start gap-2">
+                        <span class="text-slate-500 shrink-0">[${l.category}]</span>
+                        <span class="break-all">${l.message}</span>
+                    </div>`;
+                }).join('');
+
+                container.scrollTop = container.scrollHeight;
+            } catch (e) {
+                container.innerHTML = '<p class="text-rose-400 py-6 text-center">Impossible de charger le journal des logs.</p>';
+            }
+        }
+
         async function populateCollectionDropdowns() {
             try {
                 const res = await fetch(`${API_BASE}/collections/?visibility=all`);
@@ -584,8 +662,12 @@
             const targetCol = document.getElementById('target-collection-select').value;
 
             const btn = document.getElementById('convert-btn');
-            btn.innerText = "Conversion...";
+            const loaderStatus = document.getElementById('conversion-loader-status');
+            
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Conversion...';
             btn.disabled = true;
+            loaderStatus.classList.remove('hidden');
+            lucide.createIcons();
 
             const formData = new FormData();
             formData.append("file", currentFile);
@@ -596,26 +678,34 @@
                     method: 'POST',
                     body: formData
                 });
+
+                if (!res.ok) {
+                    throw new Error(`HTTP Error ${res.status}`);
+                }
+
                 const data = await res.json();
                 convertedDocData = data;
 
-                // Populate Editor
                 document.getElementById('markdown-editor').value = data.markdown_content;
                 document.getElementById('view-preview').innerHTML = marked.parse(data.markdown_content);
 
-                // Stats
                 document.getElementById('stat-pages').innerText = data.pages_count || 1;
                 document.getElementById('stat-tables').innerText = data.tables_count || 0;
                 document.getElementById('stat-chars').innerText = data.char_count || 0;
                 document.getElementById('conversion-stats').classList.remove('hidden');
 
                 document.getElementById('ingest-btn').disabled = false;
-                btn.innerText = "Re-convertir";
+                btn.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Re-convertir';
                 btn.disabled = false;
+                loaderStatus.classList.add('hidden');
+                lucide.createIcons();
             } catch (err) {
+                console.error(err);
                 alert("Erreur lors de la conversion du document.");
-                btn.innerText = "Convertir en .md";
+                btn.innerHTML = '<i data-lucide="arrow-right-left" class="w-3.5 h-3.5"></i> Convertir en .md';
                 btn.disabled = false;
+                loaderStatus.classList.add('hidden');
+                lucide.createIcons();
             }
         }
 
@@ -648,8 +738,9 @@
             const filename = convertedDocData ? convertedDocData.md_filename : (currentFile ? currentFile.name + '.md' : 'doc.md');
 
             const btn = document.getElementById('ingest-btn');
-            btn.innerText = "Indexation en cours...";
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Indexation en cours...';
             btn.disabled = true;
+            lucide.createIcons();
 
             try {
                 const res = await fetch(`${API_BASE}/documents/ingest`, {
@@ -663,13 +754,15 @@
                 });
                 const data = await res.json();
                 alert(data.message || "Document indexé dans Albert API avec succès !");
-                btn.innerText = "Indexer dans Albert API";
+                btn.innerHTML = '<i data-lucide="cloud-upload" class="w-4 h-4"></i> Indexer dans Albert API';
                 btn.disabled = false;
                 loadCollections();
+                lucide.createIcons();
             } catch (err) {
                 alert("Erreur lors de l'indexation dans Albert API.");
-                btn.innerText = "Indexer dans Albert API";
+                btn.innerHTML = '<i data-lucide="cloud-upload" class="w-4 h-4"></i> Indexer dans Albert API';
                 btn.disabled = false;
+                lucide.createIcons();
             }
         }
 

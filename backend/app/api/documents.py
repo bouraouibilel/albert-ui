@@ -80,8 +80,9 @@ async def convert_document(
     collection_name: Optional[str] = Form("")
 ):
     """
-    Étape cruciale 1: Reçoit un document brut, le convertit vers le format Markdown (.md)
-    et le retourne pour prévisualisation et édition dans l'interface d'administration.
+    Étape cruciale 1: Reçoit un document brut (PDF, DOCX, XLSX, HTML), extrait les textes, tableaux
+    et images/schémas techniques, effectue l'analyse multimodale avec Albert API (description + Mermaid.js)
+    et retourne le Markdown enrichi pour prévisualisation et édition.
     """
     try:
         temp_id = str(uuid.uuid4())[:8]
@@ -92,7 +93,7 @@ async def convert_document(
         with open(raw_file_path, "wb") as f:
             f.write(content)
 
-        conversion_result = DocumentConverter.convert_to_markdown(
+        conversion_result = await DocumentConverter.convert_to_markdown(
             file_path=raw_file_path,
             filename=file.filename,
             collection_name=collection_name or ""

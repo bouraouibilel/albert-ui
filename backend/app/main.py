@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse
 import os
 from app.core.config import settings
 from app.api import collections, documents, rag
+from app.core.logger import get_recent_logs
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -44,6 +45,11 @@ async def health_check():
         "docs_url": "/docs",
         "albert_api_configured": bool(settings.ALBERT_API_KEY)
     }
+
+@app.get(f"{settings.API_V1_STR}/logs")
+async def get_logs():
+    """Endpoint de consultation du journal des événements et des appels LLM en temps réel."""
+    return get_recent_logs()
 
 if __name__ == "__main__":
     import uvicorn
