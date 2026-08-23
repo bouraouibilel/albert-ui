@@ -11,6 +11,8 @@ from app.api.collections import get_local_collections, save_local_collections
 
 router = APIRouter(prefix="/documents", tags=["Documents & Conversion"])
 
+from pathlib import Path
+
 LOCAL_DOCUMENTS_META_FILE = os.path.join(settings.CONVERTED_DIR, "documents_meta.json")
 
 def get_local_docs() -> List[dict]:
@@ -65,6 +67,102 @@ async def list_documents(collection_id: Optional[str] = Query(None, description=
                     merged[doc_key].update(d)
 
     return list(merged.values())
+
+@router.get("/{document_id}/markdown")
+async def get_document_markdown(
+    document_id: str,
+    filename: Optional[str] = Query(None, description="Nom ou fragment de nom de fichier")
+):
+    """
+    Récupère le contenu Markdown (.md) complet d'un document converti.
+    Recherche d'abord par nom direct, puis par ID dans documents_meta.json / watchers_history.json,
+    et enfin par recherche dans storage/converted/.
+    """
+    converted_dir = settings.CONVERTED_DIR
+    target_md_path = None
+    target_filename = None
+    original_filename = filename or document_id
+
+    # 1. Vérifier si un nom de fichier direct est donné
+    if filename:
+        p = os.path.join(converted_dir, filename)
+        if os.path.exists(p) and os.path.isfile(p):
+            target_md_path = p
+            target_filename = filename
+        elif not filename.endswith(".md"):
+            p_md = os.path.join(converted_dir, f"{filename}.md")
+            if os.path.exists(p_md) and os.path.isfile(p_md):
+                target_md_path = p_md
+                target_filename = f"{filename}.md"
+
+    # 2. Chercher dans documents_meta.json
+    if not target_md_path:
+        docs = get_local_docs()
+        for d in docs:
+            if str(d.get("id")) == str(document_id) or d.get("filename") == filename or d.get("name") == filename:
+                md_name = d.get("filename")
+                if md_name:
+                    p = os.path.join(converted_dir, md_name)
+                    if os.path.exists(p):
+                        target_md_path = p
+                        target_filename = md_name
+                        original_filename = d.get("name", original_filename)
+                        break
+
+    # 3. Chercher dans watchers_history.json
+    if not target_md_path:
+        try:
+            from app.services.watcher_service import watcher_service
+            history = watcher_service.get_history(limit=500)
+            for h in history:
+                if str(h.get("albert_document_id")) == str(document_id) or str(h.get("id")) == str(document_id) or h.get("filename") == filename:
+                    md_name = h.get("markdown_file")
+                    if md_name:
+                        p = os.path.join(converted_dir, md_name)
+                        if os.path.exists(p):
+                            target_md_path = p
+                            target_filename = md_name
+                            original_filename = h.get("filename", original_filename)
+                            break
+        except Exception:
+            pass
+
+    # 4. Scan par suffixe / motif dans storage/converted/
+    if not target_md_path and os.path.exists(converted_dir):
+        stem = Path(filename or document_id).stem
+        if stem.startswith("doc_"):
+            stem = stem[4:]
+        stem_md = stem if stem.endswith(".md") else f"{stem}.md"
+        for fname in os.listdir(converted_dir):
+            if fname.endswith(".md"):
+                if fname == stem_md or fname.endswith(f"_{stem}.md") or (stem and len(stem) > 3 and stem in fname):
+                    target_md_path = os.path.join(converted_dir, fname)
+                    target_filename = fname
+                    break
+
+    if not target_md_path or not os.path.exists(target_md_path):
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Fichier Markdown introuvable pour le document '{document_id}' (nom: '{filename}')."
+        )
+
+    try:
+        with open(target_md_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        stat = os.stat(target_md_path)
+        return {
+            "status": "success",
+            "document_id": document_id,
+            "filename": target_filename or os.path.basename(target_md_path),
+            "original_filename": original_filename,
+            "markdown_content": content,
+            "char_count": len(content),
+            "file_size": stat.st_size,
+            "mtime": stat.st_mtime
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur de lecture du fichier Markdown: {str(e)}")
 
 @router.get("/{document_id}/chunks")
 async def get_document_chunks(document_id: str, limit: int = Query(50, description="Nombre de chunks à retourner")):

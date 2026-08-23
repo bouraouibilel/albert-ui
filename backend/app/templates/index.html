@@ -128,6 +128,10 @@
                     <button onclick="switchTab('converter')" id="tab-btn-converter" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2">
                         <i data-lucide="file-code" class="w-4 h-4"></i> Studio Conversion .MD
                     </button>
+                    <button onclick="switchTab('watchers')" id="tab-btn-watchers" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2 relative">
+                        <i data-lucide="folder-sync" class="w-4 h-4"></i> Dossiers d'Écoute
+                        <span id="tab-watchers-badge" class="hidden px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-blue-500 text-white"></span>
+                    </button>
                     <button onclick="switchTab('sandbox')" id="tab-btn-sandbox" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2">
                         <i data-lucide="flask-conical" class="w-4 h-4"></i> RAG Sandbox
                     </button>
@@ -288,6 +292,9 @@
                             <div class="flex items-center gap-2">
                                 <button onclick="togglePreviewTab('code')" id="btn-view-code" class="px-3 py-1 text-xs font-medium rounded-lg bg-blue-600 text-white">Code Markdown</button>
                                 <button onclick="togglePreviewTab('preview')" id="btn-view-preview" class="px-3 py-1 text-xs font-medium rounded-lg bg-slate-800 text-slate-400 hover:text-white">Aperçu Rendu</button>
+                                <button onclick="openStudioMarkdownInViewer()" class="px-3 py-1 text-xs font-medium rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5 transition" title="Ouvrir dans le visualiseur Markdown grand format">
+                                    <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i> Plein Écran
+                                </button>
                             </div>
                         </div>
 
@@ -358,7 +365,188 @@
             </div>
         </section>
 
+        <!-- TAB 4: DOSSIERS D'ECOUTE & WATCHERS -->
+        <section id="tab-watchers" class="space-y-6 hidden">
+            <!-- Header & Global Stats -->
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-white flex items-center gap-2 flex-wrap">
+                            <i data-lucide="folder-sync" class="w-6 h-6 text-indigo-400"></i> Dossiers d'Écoute & Ingestion Automatique
+                            <span id="watcher-live-badge" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Listener actif (2.5s)
+                            </span>
+                        </h2>
+                        <p class="text-slate-400 text-sm mt-1">Surveillez des répertoires physiques (un par collection) : chaque nouveau document est automatiquement converti en Markdown (.md) et indexé dans Albert API.</p>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <button onclick="scanWatchersNow()" id="btn-scan-now" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-medium text-sm rounded-xl border border-slate-700 transition flex items-center gap-2 shadow-sm" title="Déclencher une vérification immédiate de tous les dossiers">
+                            <i data-lucide="scan" class="w-4 h-4 text-indigo-400"></i> Scanner Maintenant
+                        </button>
+                        <button onclick="openCreateWatcherModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl shadow-lg shadow-indigo-600/20 transition flex items-center gap-2">
+                            <i data-lucide="folder-plus" class="w-4 h-4"></i> Nouveau Dossier d'Écoute
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Badges -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-800/80">
+                    <div class="bg-slate-950/70 border border-slate-800 p-3.5 rounded-xl flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold">
+                            <i data-lucide="folder-check" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 font-medium">Dossiers Actifs</p>
+                            <p class="text-base font-bold text-white"><span id="stat-watch-active">0</span> / <span id="stat-watch-total" class="text-xs text-slate-500 font-normal">0</span></p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950/70 border border-slate-800 p-3.5 rounded-xl flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold">
+                            <i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 font-medium">En Traitement</p>
+                            <p class="text-base font-bold text-blue-400" id="stat-watch-processing">0</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950/70 border border-slate-800 p-3.5 rounded-xl flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold">
+                            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 font-medium">Traités & Indexés</p>
+                            <p class="text-base font-bold text-emerald-400" id="stat-watch-completed">0</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950/70 border border-slate-800 p-3.5 rounded-xl flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center font-bold">
+                            <i data-lucide="alert-circle" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 font-medium">Erreurs</p>
+                            <p class="text-base font-bold text-rose-400" id="stat-watch-errors">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configured Watchers List -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                        <i data-lucide="hard-drive" class="w-4 h-4 text-indigo-400"></i> Répertoires Surveillés
+                    </h3>
+                </div>
+
+                <div id="watchers-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="col-span-full py-8 text-center text-slate-500 bg-slate-900/50 border border-slate-800 rounded-2xl">
+                        <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto text-indigo-500 mb-2"></i>
+                        Chargement des dossiers d'écoute...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Real-Time Tracking Table -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl space-y-0">
+                <div class="p-5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <i data-lucide="activity" class="w-5 h-5 text-emerald-400"></i> Suivi des Documents en Temps Réel
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Historique des fichiers détectés, de leur conversion Markdown et de leur indexation Albert API.</p>
+                    </div>
+
+                    <!-- Filter pills -->
+                    <div class="bg-slate-950 border border-slate-800 p-1 rounded-xl flex items-center gap-1">
+                        <button onclick="filterWatcherHistory('all')" id="btn-hist-all" class="px-3 py-1 text-xs font-medium rounded-lg bg-indigo-600 text-white">Tous</button>
+                        <button onclick="filterWatcherHistory('processing')" id="btn-hist-processing" class="px-3 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-white">En cours</button>
+                        <button onclick="filterWatcherHistory('completed')" id="btn-hist-completed" class="px-3 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-white">Traités</button>
+                        <button onclick="filterWatcherHistory('error')" id="btn-hist-error" class="px-3 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-white">Erreurs</button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead class="bg-slate-950/80 text-slate-400 font-semibold border-b border-slate-800">
+                            <tr>
+                                <th class="py-3 px-4">Fichier Source</th>
+                                <th class="py-3 px-4">Collection Cible</th>
+                                <th class="py-3 px-4">Dossier Écouté</th>
+                                <th class="py-3 px-4">Statut & Progression</th>
+                                <th class="py-3 px-4">Détecté le</th>
+                                <th class="py-3 px-4">Doc ID Albert</th>
+                                <th class="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="watcher-history-tbody" class="divide-y divide-slate-800/60 font-medium text-slate-300">
+                            <tr>
+                                <td colspan="7" class="py-12 text-center text-slate-500">
+                                    Aucun document détecté pour le moment.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
     </main>
+
+    <!-- Modal Nouveau Dossier d'Écoute -->
+    <div id="modal-watcher" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-lg space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="folder-sync" class="w-5 h-5 text-indigo-400"></i> <span id="modal-watcher-title">Nouveau Dossier d'Écoute</span>
+                </h3>
+                <button onclick="closeCreateWatcherModal()" class="text-slate-400 hover:text-white p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <input type="hidden" id="edit-watcher-id" value="">
+
+            <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Collection Albert Cible <span class="text-rose-400">*</span></label>
+                <select id="watcher-modal-collection" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <option value="">-- Choisir une collection --</option>
+                </select>
+                <p class="text-[11px] text-slate-500 mt-1">Tous les documents ajoutés dans ce dossier seront convertis et indexés dans cette collection.</p>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Chemin physique du dossier à surveiller <span class="text-rose-400">*</span></label>
+                <input type="text" id="watcher-modal-path" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono" placeholder="ex: D:\dossiers_in\pasrau ou storage\uploads">
+                <p class="text-[11px] text-slate-500 mt-1">Chemin absolu ou relatif sur la machine/serveur. Le dossier sera créé automatiquement s'il n'existe pas.</p>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Filtre sur le nom de fichier (Optionnel)</label>
+                <input type="text" id="watcher-modal-filter" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono" placeholder="ex: *PASRAU*.docx, *.pdf ou *" value="*">
+                <p class="text-[11px] text-slate-500 mt-1">Motif avec joker * ou sous-chaîne pour cibler uniquement certains fichiers.</p>
+            </div>
+
+            <div class="space-y-2 pt-1 border-t border-slate-800">
+                <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                    <input type="checkbox" id="watcher-modal-recursive" class="rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500">
+                    <span>Parcourir également les sous-dossiers récursivement</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                    <input type="checkbox" id="watcher-modal-enabled" class="rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500" checked>
+                    <span>Activer la surveillance automatique immédiatement</span>
+                </label>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                <button onclick="closeCreateWatcherModal()" class="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white">Annuler</button>
+                <button onclick="saveWatcherConfig()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-xl shadow-lg shadow-indigo-600/20">Enregistrer la Configuration</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Logs LLM & API en direct -->
     <div id="modal-logs" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
@@ -433,6 +621,79 @@
         </div>
     </div>
 
+    <!-- Modal Visualiseur Markdown Enrichi (.md) -->
+    <div id="modal-md-viewer" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden transition-all">
+            <!-- Header -->
+            <div class="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between gap-4 bg-slate-950/60">
+                <div class="flex items-center gap-3 overflow-hidden">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold shrink-0">
+                        <i data-lucide="file-code" class="w-5 h-5"></i>
+                    </div>
+                    <div class="truncate">
+                        <h3 id="md-viewer-title" class="text-base font-bold text-white truncate">Document Markdown</h3>
+                        <div class="flex items-center gap-2 text-xs text-slate-400 mt-0.5 flex-wrap">
+                            <span id="md-viewer-filename" class="font-mono text-indigo-300 text-[11px]"></span>
+                            <span class="text-slate-600">•</span>
+                            <span id="md-viewer-stats" class="text-slate-400 text-[11px]"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 shrink-0">
+                    <!-- Mode Switcher -->
+                    <div class="bg-slate-950 border border-slate-800 p-1 rounded-xl flex items-center gap-1">
+                        <button onclick="switchMdViewerTab('preview')" id="btn-mdview-preview" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white flex items-center gap-1.5 transition">
+                            <i data-lucide="eye" class="w-3.5 h-3.5"></i> Rendu Visuel
+                        </button>
+                        <button onclick="switchMdViewerTab('raw')" id="btn-mdview-raw" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-400 hover:text-white flex items-center gap-1.5 transition">
+                            <i data-lucide="code" class="w-3.5 h-3.5"></i> Markdown Brut
+                        </button>
+                    </div>
+
+                    <!-- Actions -->
+                    <button onclick="copyMdViewerContent()" id="btn-mdview-copy" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-medium border border-slate-700 transition flex items-center gap-1.5" title="Copier tout le contenu Markdown">
+                        <i data-lucide="copy" class="w-3.5 h-3.5"></i> <span class="hidden sm:inline">Copier</span>
+                    </button>
+                    <button onclick="downloadMdViewerContent()" id="btn-mdview-download" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 hover:text-white rounded-xl text-xs font-medium border border-indigo-500/30 transition flex items-center gap-1.5" title="Télécharger le fichier .md">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i> <span class="hidden sm:inline">Télécharger</span>
+                    </button>
+                    <button onclick="closeMdViewerModal()" class="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition" title="Fermer (Échap)">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body Area -->
+            <div class="flex-1 overflow-hidden relative bg-slate-950/40">
+                <!-- Loading indicator -->
+                <div id="md-viewer-loading" class="absolute inset-0 bg-slate-950/70 z-10 flex flex-col items-center justify-center gap-3">
+                    <i data-lucide="loader-2" class="w-8 h-8 animate-spin text-indigo-500"></i>
+                    <p class="text-xs text-slate-300">Chargement et génération du rendu Markdown...</p>
+                </div>
+
+                <!-- View: Preview -->
+                <div id="md-viewer-preview-container" class="h-full overflow-y-auto p-6 sm:p-8 prose prose-invert max-w-none text-xs custom-scrollbar">
+                    <div id="md-viewer-preview-content" class="space-y-4"></div>
+                </div>
+
+                <!-- View: Raw Markdown -->
+                <div id="md-viewer-raw-container" class="h-full hidden flex flex-col p-4">
+                    <textarea id="md-viewer-raw-content" readonly class="flex-1 w-full bg-slate-950 border border-slate-800 text-slate-200 font-mono text-xs rounded-xl p-4 focus:outline-none custom-scrollbar resize-none selection:bg-indigo-600 selection:text-white"></textarea>
+                </div>
+            </div>
+
+            <!-- Footer info -->
+            <div class="p-3 px-6 border-t border-slate-800/80 bg-slate-950/80 flex items-center justify-between text-[11px] text-slate-400">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span>Document Markdown converti (Compatible Albert RAG & Open WebUI)</span>
+                </div>
+                <span id="md-viewer-footer-info" class="font-mono text-slate-500"></span>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Nouvelle Collection -->
     <div id="modal-collection" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-md space-y-4 shadow-2xl">
@@ -468,6 +729,7 @@
     <!-- Scripts Logic -->
     <script>
         const API_BASE = '/api/v1';
+        let activeTab = 'collections';
         let currentFile = null;
         let convertedDocData = null;
         let currentVisibilityFilter = 'private';
@@ -478,6 +740,7 @@
             lucide.createIcons();
             checkHealth();
             loadCollections();
+            startWatcherLivePolling();
         });
 
         function toggleThemeDropdown(event) {
@@ -545,19 +808,27 @@
         }
 
         function switchTab(tabId) {
-            ['collections', 'converter', 'sandbox'].forEach(t => {
-                document.getElementById(`tab-${t}`).classList.add('hidden');
+            activeTab = tabId;
+            ['collections', 'converter', 'watchers', 'sandbox'].forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (el) el.classList.add('hidden');
                 const btn = document.getElementById(`tab-btn-${t}`);
-                btn.className = "px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2";
+                if (btn) btn.className = "px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2 relative";
             });
 
-            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            const currentSection = document.getElementById(`tab-${tabId}`);
+            if (currentSection) currentSection.classList.remove('hidden');
             const activeBtn = document.getElementById(`tab-btn-${tabId}`);
-            activeBtn.className = "px-4 py-2 text-sm font-medium rounded-lg transition-all bg-blue-600 text-white shadow-sm flex items-center gap-2";
+            if (activeBtn) activeBtn.className = "px-4 py-2 text-sm font-medium rounded-lg transition-all bg-blue-600 text-white shadow-sm flex items-center gap-2 relative";
             
-            if (tabId === 'converter' || tabId === 'sandbox') {
+            if (tabId === 'converter' || tabId === 'sandbox' || tabId === 'watchers') {
                 populateCollectionDropdowns();
             }
+
+            if (tabId === 'watchers') {
+                fetchLiveWatcherData(true);
+            }
+            lucide.createIcons();
         }
 
         function filterVisibility(visibility) {
@@ -579,42 +850,34 @@
         }
 
         async function loadCollections() {
+            const grid = document.getElementById('collections-grid');
             try {
                 const res = await fetch(`${API_BASE}/collections/?visibility=${currentVisibilityFilter}`);
-                const cols = await res.json();
-                renderCollections(cols);
-            } catch (err) {
-                console.error("Erreur de chargement des collections:", err);
-            }
-        }
+                const data = await res.json();
+                
+                if (!data || data.length === 0) {
+                    grid.innerHTML = `
+                        <div class="col-span-full py-12 text-center text-slate-400 bg-slate-900 border border-slate-800 rounded-2xl p-8">
+                            <i data-lucide="folder-x" class="w-12 h-12 mx-auto text-slate-600 mb-3"></i>
+                            <h3 class="text-base font-semibold text-white">Aucune collection ${currentVisibilityFilter === 'private' ? 'privée' : ''} trouvée</h3>
+                            <p class="text-xs text-slate-400 mt-1">Créez votre première collection privée pour y injecter vos documents Markdown convertis.</p>
+                            <button onclick="openCreateCollectionModal()" class="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-xl inline-flex items-center gap-2">
+                                <i data-lucide="plus-circle" class="w-4 h-4"></i> Créer une Collection
+                            </button>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    return;
+                }
 
-        function renderCollections(cols) {
-            const grid = document.getElementById('collections-grid');
-            if (!cols || cols.length === 0) {
-                grid.innerHTML = `
-                    <div class="col-span-full py-12 px-6 text-center border border-dashed border-slate-800 rounded-2xl bg-slate-900/40">
-                        <i data-lucide="folder-search" class="w-10 h-10 mx-auto text-slate-600 mb-3"></i>
-                        <h3 class="text-base font-semibold text-slate-200">Aucune collection ${currentVisibilityFilter === 'private' ? 'privée' : ''} trouvée</h3>
-                        <p class="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                            Consultez l'onglet <b>Toutes</b> ou créez/déclarez une nouvelle collection.
-                        </p>
-                        <button onclick="openCreateCollectionModal()" class="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-xl shadow-lg transition">
-                            Ajouter / Déclarer une collection
-                        </button>
-                    </div>
-                `;
-                lucide.createIcons();
-                return;
-            }
-
-            grid.innerHTML = cols.map(c => `
-                <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 p-5 rounded-2xl transition space-y-4 flex flex-col justify-between">
-                    <div class="space-y-3">
-                        <div class="flex items-start justify-between">
-                            <div class="w-10 h-10 rounded-xl bg-blue-950/60 border border-blue-800/40 text-blue-400 flex items-center justify-center">
+                grid.innerHTML = data.map(c => `
+                <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 p-6 rounded-2xl flex flex-col justify-between transition group shadow-xl">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div class="w-10 h-10 rounded-xl ${c.visibility === 'public' ? 'bg-slate-800 text-slate-300' : 'bg-blue-600/10 text-blue-400'} flex items-center justify-center font-bold">
                                 <i data-lucide="${c.visibility === 'public' ? 'globe' : 'lock'}" class="w-5 h-5"></i>
                             </div>
-                            <button onclick="deleteCollection('${c.id}')" class="text-slate-500 hover:text-rose-400 p-1" title="Supprimer la collection">
+                            <button onclick="deleteCollection('${c.id || c.name}')" class="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition" title="Supprimer la collection">
                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
                             </button>
                         </div>
@@ -637,6 +900,9 @@
                 </div>
             `).join('');
             lucide.createIcons();
+            } catch (err) {
+                console.error("Erreur chargement collections:", err);
+            }
         }
 
         async function openDocsModal(colId, colName) {
@@ -676,13 +942,21 @@
                                 return `
                                 <tr class="hover:bg-slate-950/40">
                                     <td class="p-3 font-mono text-blue-400">${d.id}</td>
-                                    <td class="p-3 font-semibold text-white">${d.name || d.filename}</td>
+                                    <td class="p-3 font-semibold text-white">
+                                        <div class="flex items-center gap-2 cursor-pointer group" onclick="viewDocumentMarkdown('${d.id}', '${docTitle}')" title="Cliquer pour visualiser le Markdown (.md)">
+                                            <i data-lucide="file-text" class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-400 transition shrink-0"></i>
+                                            <span class="group-hover:text-indigo-300 transition">${d.name || d.filename}</span>
+                                        </div>
+                                    </td>
                                     <td class="p-3"><span class="px-2 py-0.5 bg-emerald-950 border border-emerald-800 text-emerald-300 rounded-full font-mono text-[10px]">${d.chunks || 0} chunks</span></td>
                                     <td class="p-3 text-slate-400">${( (d.size || d.size_chars || 0) / 1024 ).toFixed(1)} KB</td>
                                     <td class="p-3 text-right">
                                         <div class="flex items-center justify-end gap-2">
-                                            <button onclick="openChunksModal('${d.id}', '${docTitle}')" class="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5" title="Inspecter les chunks">
-                                                <i data-lucide="layers" class="w-3.5 h-3.5"></i> Inspecter Chunks
+                                            <button onclick="viewDocumentMarkdown('${d.id}', '${docTitle}')" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5" title="Visualiser le fichier Markdown (.md) converti">
+                                                <i data-lucide="eye" class="w-3.5 h-3.5"></i> Voir .md
+                                            </button>
+                                            <button onclick="openChunksModal('${d.id}', '${docTitle}')" class="px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5" title="Inspecter les chunks">
+                                                <i data-lucide="layers" class="w-3.5 h-3.5"></i> Chunks
                                             </button>
                                             <button onclick="deleteDocument('${d.id}', '${docTitle}', '${colId}', '${safeColName}')" class="p-1.5 bg-rose-950/40 hover:bg-rose-600/20 text-rose-400 hover:text-rose-300 border border-rose-900/40 rounded-lg transition flex items-center justify-center" title="Supprimer ce document de la collection">
                                                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -791,12 +1065,14 @@
                 
                 const targetSelect = document.getElementById('target-collection-select');
                 const sandboxSelect = document.getElementById('sandbox-collection-select');
+                const watcherSelect = document.getElementById('watcher-modal-collection');
                 
                 const optionsHtml = '<option value="">-- Choisir une collection --</option>' + 
                     cols.map(c => `<option value="${c.id || c.name}">${c.name} (${c.visibility || 'privée'})</option>`).join('');
 
-                targetSelect.innerHTML = optionsHtml;
-                sandboxSelect.innerHTML = optionsHtml;
+                if (targetSelect) targetSelect.innerHTML = optionsHtml;
+                if (sandboxSelect) sandboxSelect.innerHTML = optionsHtml;
+                if (watcherSelect) watcherSelect.innerHTML = optionsHtml;
             } catch (e) {
                 console.error(e);
             }
@@ -1030,6 +1306,419 @@
             }
         }
 
+        // --- WATCHERS & AUTO-LISTENER REAL-TIME LOGIC ---
+        let currentWatcherHistoryFilter = 'all';
+        let watcherPollingTimer = null;
+        let lastCompletedCount = -1;
+        let lastProcessingCount = -1;
+        let isFetchingWatcherData = false;
+
+        function filterWatcherHistory(status) {
+            currentWatcherHistoryFilter = status;
+            ['all', 'processing', 'completed', 'error'].forEach(s => {
+                const btn = document.getElementById(`btn-hist-${s}`);
+                if (btn) {
+                    if (s === status) {
+                        btn.className = "px-3 py-1 text-xs font-medium rounded-lg bg-indigo-600 text-white";
+                    } else {
+                        btn.className = "px-3 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-white";
+                    }
+                }
+            });
+            fetchLiveWatcherData(true);
+        }
+
+        function startWatcherLivePolling() {
+            if (watcherPollingTimer) clearInterval(watcherPollingTimer);
+            fetchLiveWatcherData();
+            // Polling haute fréquence (toutes les 2.0s) pour synchronisation temps réel sans lag
+            watcherPollingTimer = setInterval(() => {
+                fetchLiveWatcherData(false);
+            }, 2000);
+        }
+
+        async function fetchLiveWatcherData(forceUiUpdate = false) {
+            if (isFetchingWatcherData) return;
+            isFetchingWatcherData = true;
+
+            try {
+                const url = currentWatcherHistoryFilter === 'all' 
+                    ? `${API_BASE}/watchers/live` 
+                    : `${API_BASE}/watchers/live?status=${currentWatcherHistoryFilter}`;
+
+                const res = await fetch(url);
+                if (!res.ok) return;
+                const data = await res.json();
+                
+                const stats = data.stats || {};
+                const watchers = data.watchers || [];
+                const history = data.history || [];
+
+                // 1. Mise à jour du badge de notification sur l'onglet
+                const badge = document.getElementById('tab-watchers-badge');
+                if (badge) {
+                    if (stats.processing_count > 0) {
+                        badge.className = "px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-500 text-white animate-pulse inline-flex items-center gap-1";
+                        badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-white"></span> ${stats.processing_count}`;
+                        badge.classList.remove('hidden');
+                    } else if (stats.error_count > 0) {
+                        badge.className = "px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-rose-500 text-white inline-flex";
+                        badge.textContent = `${stats.error_count}`;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+
+                // 2. Si on est sur l'onglet Collections et qu'un fichier vient de se terminer, rafraîchir les collections
+                if (activeTab === 'collections' && lastCompletedCount !== -1 && stats.completed_count !== lastCompletedCount) {
+                    loadCollections();
+                }
+
+                // 3. Mise à jour de l'onglet Watchers si visible
+                if (activeTab === 'watchers') {
+                    // Métriques globales
+                    const elActive = document.getElementById('stat-watch-active');
+                    if (elActive) elActive.innerText = stats.active_watchers || 0;
+                    const elTotal = document.getElementById('stat-watch-total');
+                    if (elTotal) elTotal.innerText = stats.total_watchers || 0;
+                    const elProc = document.getElementById('stat-watch-processing');
+                    if (elProc) elProc.innerText = stats.processing_count || 0;
+                    const elComp = document.getElementById('stat-watch-completed');
+                    if (elComp) elComp.innerText = stats.completed_count || 0;
+                    const elErr = document.getElementById('stat-watch-errors');
+                    if (elErr) elErr.innerText = stats.error_count || 0;
+
+                    // Rendu de la grille des watchers
+                    renderWatchersCards(watchers);
+
+                    // Rendu du tableau d'historique
+                    renderWatcherHistory(history);
+                }
+
+                lastCompletedCount = stats.completed_count || 0;
+                lastProcessingCount = stats.processing_count || 0;
+
+            } catch (err) {
+                console.error("Erreur sync live watchers:", err);
+            } finally {
+                isFetchingWatcherData = false;
+            }
+        }
+
+        function renderWatchersCards(watchers) {
+            const grid = document.getElementById('watchers-cards-grid');
+            if (!grid) return;
+
+            if (!watchers || watchers.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full py-12 text-center bg-slate-900/50 border border-slate-800/80 rounded-2xl p-6">
+                        <i data-lucide="folder-search" class="w-10 h-10 mx-auto text-slate-600 mb-3"></i>
+                        <h4 class="text-sm font-semibold text-slate-300">Aucun dossier d'écoute configuré</h4>
+                        <p class="text-xs text-slate-500 max-w-md mx-auto mt-1">Configurez un premier répertoire pour lancer la conversion et l'indexation automatique de vos documents.</p>
+                        <button onclick="openCreateWatcherModal()" class="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-xl inline-flex items-center gap-2">
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i> Configurer un Dossier
+                        </button>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            grid.innerHTML = watchers.map(w => {
+                const isEnabled = w.enabled !== false;
+                const jsonStr = JSON.stringify(w).replace(/"/g, '&quot;');
+                return `
+                <div class="bg-slate-900 border ${isEnabled ? 'border-slate-800 hover:border-indigo-500/40' : 'border-slate-800/50 opacity-70'} p-5 rounded-2xl flex flex-col justify-between transition group shadow-lg">
+                    <div class="space-y-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${isEnabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-400'}">
+                                    ${isEnabled ? '● Écoute Active' : '○ En Pause'}
+                                </span>
+                                <h4 class="font-bold text-white text-base mt-2 flex items-center gap-1.5">
+                                    <i data-lucide="folder" class="w-4 h-4 text-indigo-400 shrink-0"></i>
+                                    <span class="truncate">${w.collection_name || 'Collection ' + w.collection_id}</span>
+                                </h4>
+                            </div>
+                            
+                            <button onclick="toggleWatcher('${w.id}')" class="p-1.5 rounded-lg border text-xs font-medium transition ${isEnabled ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300 hover:bg-emerald-900/60' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'}" title="${isEnabled ? 'Mettre en pause' : 'Activer'}">
+                                <i data-lucide="${isEnabled ? 'pause' : 'play'}" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+
+                        <div class="space-y-1.5 text-xs text-slate-400 font-mono bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
+                            <div class="flex items-start gap-1.5 text-slate-300">
+                                <i data-lucide="hard-drive" class="w-3.5 h-3.5 text-slate-500 mt-0.5 shrink-0"></i>
+                                <span class="break-all text-[11px]">${w.folder_path}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-900">
+                                <span>Filtre: <strong class="text-indigo-300">${w.filter_pattern || '*'}</strong></span>
+                                <span>${w.recursive ? 'Récursif: Oui' : 'Racine seule'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-3 mt-3 border-t border-slate-800/60 text-xs text-slate-500">
+                        <span class="text-[10px]">Traités : <strong class="text-slate-300">${w.total_processed || 0}</strong></span>
+                        <div class="flex items-center gap-1">
+                            <button onclick="openCreateWatcherModal(${jsonStr})" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800" title="Modifier">
+                                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button onclick="deleteWatcher('${w.id}')" class="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-rose-950/40" title="Supprimer">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function renderWatcherHistory(history) {
+            const tbody = document.getElementById('watcher-history-tbody');
+            if (!tbody) return;
+
+            if (!history || history.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="py-12 text-center text-slate-500">
+                            Aucun document dans cette vue.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = history.map(h => {
+                let statusBadge = '';
+                if (h.status === 'processing') {
+                    statusBadge = `
+                        <div class="space-y-1">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-950 text-blue-300 border border-blue-800/80 animate-pulse">
+                                <i data-lucide="loader-2" class="w-3 h-3 animate-spin text-blue-400"></i> En Traitement
+                            </span>
+                            <p class="text-[10px] text-blue-400 font-mono flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping shrink-0"></span> ${h.progress_step || 'En cours...'}
+                            </p>
+                        </div>
+                    `;
+                } else if (h.status === 'completed') {
+                    statusBadge = `
+                        <div class="space-y-0.5">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800/80">
+                                <i data-lucide="check" class="w-3 h-3 text-emerald-400"></i> Traité avec succès
+                            </span>
+                            <p class="text-[10px] text-slate-500">${h.tables_count ? h.tables_count + ' tab., ' : ''}${h.char_count ? (h.char_count / 1000).toFixed(1) + 'k car.' : ''}</p>
+                        </div>
+                    `;
+                } else if (h.status === 'error') {
+                    statusBadge = `
+                        <div class="space-y-1">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-950 text-rose-300 border border-rose-800/80" title="${h.error_message || 'Erreur'}">
+                                <i data-lucide="alert-triangle" class="w-3 h-3 text-rose-400"></i> Erreur
+                            </span>
+                            ${h.error_message ? `<p class="text-[10px] text-rose-400 font-normal line-clamp-1 max-w-[200px]" title="${h.error_message}">⚠️ ${h.error_message}</p>` : ''}
+                        </div>
+                    `;
+                } else {
+                    statusBadge = `
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-300">
+                            <i data-lucide="clock" class="w-3 h-3 text-slate-400"></i> En attente
+                        </span>
+                    `;
+                }
+
+                const formattedSize = h.file_size ? `${(h.file_size / 1024).toFixed(1)} KB` : '';
+                const detectedDate = h.detected_at ? new Date(h.detected_at).toLocaleTimeString() : '-';
+                const docId = h.albert_document_id ? `<span class="font-mono text-indigo-400 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/60 text-[11px]">#${h.albert_document_id}</span>` : '<span class="text-slate-600">-</span>';
+
+                const hasMd = h.status === 'completed' || h.markdown_file;
+
+                return `
+                <tr class="hover:bg-slate-950/40 transition">
+                    <td class="py-3.5 px-4 font-semibold text-white">
+                        <div class="flex items-center gap-2 ${hasMd ? 'cursor-pointer group' : ''}" ${hasMd ? `onclick="viewWatcherMarkdown('${h.id}')" title="Cliquer pour visualiser le fichier Markdown (.md)"` : ''}>
+                            <i data-lucide="file-text" class="w-4 h-4 text-slate-400 ${hasMd ? 'group-hover:text-indigo-400' : ''} shrink-0"></i>
+                            <span class="break-all font-mono text-xs ${hasMd ? 'group-hover:text-indigo-300' : ''}">${h.filename}</span>
+                            <span class="text-[10px] text-slate-500 font-normal">(${formattedSize})</span>
+                        </div>
+                    </td>
+                    <td class="py-3.5 px-4 text-slate-300">
+                        <span class="px-2 py-0.5 bg-slate-800 rounded font-medium text-[11px]">${h.collection_name || 'Col #' + h.collection_id}</span>
+                    </td>
+                    <td class="py-3.5 px-4 font-mono text-[11px] text-slate-400 max-w-[200px] truncate" title="${h.file_path}">
+                        ${h.file_path}
+                    </td>
+                    <td class="py-3.5 px-4">
+                        ${statusBadge}
+                    </td>
+                    <td class="py-3.5 px-4 font-mono text-slate-400 text-[11px]">
+                        ${detectedDate}
+                    </td>
+                    <td class="py-3.5 px-4">
+                        ${docId}
+                    </td>
+                    <td class="py-3.5 px-4 text-right">
+                        <div class="flex items-center justify-end gap-1.5">
+                            ${hasMd ? `
+                                <button onclick="viewWatcherMarkdown('${h.id}')" class="p-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 rounded-lg transition flex items-center gap-1 text-[11px]" title="Visualiser le fichier Markdown (.md) converti">
+                                    <i data-lucide="eye" class="w-3.5 h-3.5"></i> <span class="hidden xl:inline">Voir .md</span>
+                                </button>
+                            ` : ''}
+                            ${h.status === 'error' ? `
+                                <button onclick="retryWatcherItem('${h.id}')" class="p-1.5 text-indigo-400 hover:text-indigo-300 rounded-lg hover:bg-slate-800" title="Relancer le traitement">
+                                    <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+                                </button>
+                            ` : ''}
+                            <button onclick="deleteWatcherHistoryItem('${h.id}')" class="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800" title="Supprimer de l'historique">
+                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function openCreateWatcherModal(watcher = null) {
+            populateCollectionDropdowns();
+            const modal = document.getElementById('modal-watcher');
+            const title = document.getElementById('modal-watcher-title');
+            const idInput = document.getElementById('edit-watcher-id');
+            const colSelect = document.getElementById('watcher-modal-collection');
+            const pathInput = document.getElementById('watcher-modal-path');
+            const filterInput = document.getElementById('watcher-modal-filter');
+            const recCheck = document.getElementById('watcher-modal-recursive');
+            const enCheck = document.getElementById('watcher-modal-enabled');
+
+            if (watcher) {
+                title.innerText = "Modifier le Dossier d'Écoute";
+                idInput.value = watcher.id || '';
+                colSelect.value = watcher.collection_id || '';
+                pathInput.value = watcher.folder_path || '';
+                filterInput.value = watcher.filter_pattern || '*';
+                recCheck.checked = !!watcher.recursive;
+                enCheck.checked = watcher.enabled !== false;
+            } else {
+                title.innerText = "Nouveau Dossier d'Écoute";
+                idInput.value = '';
+                pathInput.value = '';
+                filterInput.value = '*';
+                recCheck.checked = false;
+                enCheck.checked = true;
+            }
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeCreateWatcherModal() {
+            document.getElementById('modal-watcher').classList.add('hidden');
+        }
+
+        async function saveWatcherConfig() {
+            const id = document.getElementById('edit-watcher-id').value.trim();
+            const colSelect = document.getElementById('watcher-modal-collection');
+            const collectionId = colSelect.value;
+            const collectionName = colSelect.options[colSelect.selectedIndex] ? colSelect.options[colSelect.selectedIndex].text.split('(')[0].trim() : '';
+            const folderPath = document.getElementById('watcher-modal-path').value.trim();
+            const filterPattern = document.getElementById('watcher-modal-filter').value.trim() || '*';
+            const recursive = document.getElementById('watcher-modal-recursive').checked;
+            const enabled = document.getElementById('watcher-modal-enabled').checked;
+
+            if (!collectionId) return alert("Veuillez sélectionner une collection cible.");
+            if (!folderPath) return alert("Veuillez indiquer le chemin du répertoire physique à écouter.");
+
+            try {
+                const res = await fetch(`${API_BASE}/watchers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        watcher_id: id || undefined,
+                        collection_id: collectionId,
+                        collection_name: collectionName,
+                        folder_path: folderPath,
+                        filter_pattern: filterPattern,
+                        recursive: recursive,
+                        enabled: enabled
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || `HTTP ${res.status}`);
+                }
+
+                closeCreateWatcherModal();
+                fetchLiveWatcherData(true);
+            } catch (err) {
+                console.error("Erreur enregistrement watcher:", err);
+                alert(`Erreur : ${err.message}`);
+            }
+        }
+
+        async function toggleWatcher(watcherId) {
+            try {
+                const res = await fetch(`${API_BASE}/watchers/${watcherId}/toggle`, { method: 'POST' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                fetchLiveWatcherData();
+            } catch (err) {
+                console.error("Erreur toggle watcher:", err);
+            }
+        }
+
+        async function deleteWatcher(watcherId) {
+            if (!confirm("Voulez-vous supprimer ce dossier d'écoute ? (Les documents déjà indexés resteront dans Albert API)")) return;
+            try {
+                const res = await fetch(`${API_BASE}/watchers/${watcherId}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                fetchLiveWatcherData(true);
+            } catch (err) {
+                console.error("Erreur suppression watcher:", err);
+            }
+        }
+
+        async function scanWatchersNow() {
+            const btn = document.getElementById('btn-scan-now');
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-indigo-400"></i> Scan en cours...';
+            btn.disabled = true;
+            lucide.createIcons();
+
+            try {
+                const res = await fetch(`${API_BASE}/watchers/scan-now`, { method: 'POST' });
+                const data = await res.json();
+                fetchLiveWatcherData(true);
+            } catch (err) {
+                console.error("Erreur scan immédiat:", err);
+            } finally {
+                btn.innerHTML = '<i data-lucide="scan" class="w-4 h-4 text-indigo-400"></i> Scanner Maintenant';
+                btn.disabled = false;
+                lucide.createIcons();
+            }
+        }
+
+        async function retryWatcherItem(itemId) {
+            try {
+                const res = await fetch(`${API_BASE}/watchers/history/${itemId}/retry`, { method: 'POST' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                fetchLiveWatcherData(true);
+            } catch (err) {
+                alert(`Erreur relance: ${err.message}`);
+            }
+        }
+
+        async function deleteWatcherHistoryItem(itemId) {
+            try {
+                const res = await fetch(`${API_BASE}/watchers/history/${itemId}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                fetchLiveWatcherData(true);
+            } catch (err) {
+                console.error("Erreur suppression historique:", err);
+            }
+        }
+
         // --- RAG SANDBOX ---
         async function runRAGTest() {
             const colId = document.getElementById('sandbox-collection-select').value;
@@ -1069,6 +1758,198 @@
                 resultsContainer.innerHTML = '<p class="text-xs text-rose-400 text-center">Erreur lors de la requête sandbox.</p>';
             }
         }
+
+        // --- MARKDOWN VIEWER MODAL LOGIC (.MD) ---
+        let currentViewingMarkdown = {
+            content: '',
+            filename: '',
+            originalName: ''
+        };
+
+        async function openMarkdownViewer(title, filename, markdownContent, statsInfo = '', footerInfo = '') {
+            currentViewingMarkdown.content = markdownContent || '';
+            currentViewingMarkdown.filename = filename || 'document.md';
+            currentViewingMarkdown.originalName = title || filename || 'Document';
+
+            const modal = document.getElementById('modal-md-viewer');
+            modal.classList.remove('hidden');
+
+            document.getElementById('md-viewer-title').innerText = title || filename || 'Document Markdown';
+            document.getElementById('md-viewer-filename').innerText = filename ? `📄 ${filename}` : '';
+            document.getElementById('md-viewer-stats').innerText = statsInfo || `${(markdownContent || '').length.toLocaleString()} caractères`;
+            document.getElementById('md-viewer-footer-info').innerText = footerInfo || '';
+
+            document.getElementById('md-viewer-raw-content').value = markdownContent || '';
+
+            // Mode visualiseur riche par défaut
+            await switchMdViewerTab('preview');
+            lucide.createIcons();
+        }
+
+        async function switchMdViewerTab(mode) {
+            const btnPreview = document.getElementById('btn-mdview-preview');
+            const btnRaw = document.getElementById('btn-mdview-raw');
+            const previewContainer = document.getElementById('md-viewer-preview-container');
+            const rawContainer = document.getElementById('md-viewer-raw-container');
+            const loader = document.getElementById('md-viewer-loading');
+
+            if (mode === 'raw') {
+                btnRaw.className = "px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white flex items-center gap-1.5 transition";
+                btnPreview.className = "px-3 py-1.5 text-xs font-medium rounded-lg text-slate-400 hover:text-white flex items-center gap-1.5 transition";
+                rawContainer.classList.remove('hidden');
+                previewContainer.classList.add('hidden');
+                loader.classList.add('hidden');
+            } else {
+                btnPreview.className = "px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white flex items-center gap-1.5 transition";
+                btnRaw.className = "px-3 py-1.5 text-xs font-medium rounded-lg text-slate-400 hover:text-white flex items-center gap-1.5 transition";
+                previewContainer.classList.remove('hidden');
+                rawContainer.classList.add('hidden');
+                
+                loader.classList.remove('hidden');
+                await renderMarkdownViewerPreview(currentViewingMarkdown.content);
+                loader.classList.add('hidden');
+            }
+            lucide.createIcons();
+        }
+
+        async function renderMarkdownViewerPreview(mdText) {
+            const previewContent = document.getElementById('md-viewer-preview-content');
+            previewContent.innerHTML = marked.parse(mdText || "");
+
+            // Traitement et rendu interactif sécurisé des diagrammes Mermaid
+            if (window.mermaid) {
+                const codeBlocks = previewContent.querySelectorAll('code.language-mermaid');
+                for (let idx = 0; idx < codeBlocks.length; idx++) {
+                    const block = codeBlocks[idx];
+                    const pre = block.parentElement;
+                    const rawCode = block.textContent;
+                    const sanitizedCode = sanitizeMermaidClient(rawCode);
+                    const container = document.createElement('div');
+                    container.className = 'my-6 p-4 bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto text-center shadow-lg';
+                    
+                    try {
+                        const id = `mermaid_mdview_${Date.now()}_${idx}`;
+                        const renderResult = await mermaid.render(id, sanitizedCode);
+                        container.innerHTML = renderResult.svg;
+                    } catch (err) {
+                        console.warn("Erreur de rendu Mermaid dans le visualiseur:", err);
+                        container.innerHTML = `
+                            <div class="p-3 bg-slate-950 border border-slate-800 rounded-lg text-left text-xs">
+                                <div class="text-indigo-400 font-semibold mb-1 flex items-center gap-1.5">
+                                    <span>📊 Diagramme Technique</span>
+                                </div>
+                                <pre class="font-mono text-[11px] text-slate-300 bg-slate-900/80 p-3 rounded-lg overflow-x-auto">${rawCode}</pre>
+                            </div>
+                        `;
+                    }
+                    pre.replaceWith(container);
+                }
+            }
+        }
+
+        async function viewWatcherMarkdown(itemId) {
+            const modal = document.getElementById('modal-md-viewer');
+            const loader = document.getElementById('md-viewer-loading');
+            modal.classList.remove('hidden');
+            loader.classList.remove('hidden');
+            lucide.createIcons();
+
+            try {
+                const res = await fetch(`${API_BASE}/watchers/history/${itemId}/markdown`);
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || `HTTP ${res.status}`);
+                }
+                const data = await res.json();
+                const sizeKb = (data.file_size / 1024).toFixed(1);
+                const stats = `${sizeKb} KB • ${data.char_count ? data.char_count.toLocaleString() : 0} caractères`;
+                const footer = `Collection: ${data.collection_name || 'ID ' + data.collection_id} • Fichier converti: ${data.markdown_file}`;
+
+                await openMarkdownViewer(data.filename, data.markdown_file, data.markdown_content, stats, footer);
+            } catch (err) {
+                alert(`Impossible de charger le fichier Markdown: ${err.message}`);
+                closeMdViewerModal();
+            }
+        }
+
+        async function viewDocumentMarkdown(docId, docName) {
+            const modal = document.getElementById('modal-md-viewer');
+            const loader = document.getElementById('md-viewer-loading');
+            modal.classList.remove('hidden');
+            loader.classList.remove('hidden');
+            lucide.createIcons();
+
+            try {
+                const url = `${API_BASE}/documents/${encodeURIComponent(docId)}/markdown?filename=${encodeURIComponent(docName || '')}`;
+                const res = await fetch(url);
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || `HTTP ${res.status}`);
+                }
+                const data = await res.json();
+                const sizeKb = (data.file_size / 1024).toFixed(1);
+                const stats = `${sizeKb} KB • ${data.char_count ? data.char_count.toLocaleString() : 0} caractères`;
+                const footer = `Doc ID Albert: #${data.document_id} • Fichier converti: ${data.filename}`;
+
+                await openMarkdownViewer(data.original_filename || docName, data.filename, data.markdown_content, stats, footer);
+            } catch (err) {
+                alert(`Impossible de charger le fichier Markdown: ${err.message}`);
+                closeMdViewerModal();
+            }
+        }
+
+        function openStudioMarkdownInViewer() {
+            const mdContent = document.getElementById('markdown-editor').value;
+            if (!mdContent || !mdContent.trim()) {
+                return alert("Aucun contenu Markdown à visualiser. Veuillez convertir ou charger un document d'abord.");
+            }
+            const name = currentFile ? currentFile.name : (convertedDocData ? convertedDocData.original_filename : 'Document Studio');
+            const mdName = convertedDocData ? convertedDocData.md_filename : `${name}.md`;
+            const stats = `${(mdContent.length / 1000).toFixed(1)}k caractères`;
+            openMarkdownViewer(name, mdName, mdContent, stats, "Éditeur Studio Conversion .MD");
+        }
+
+        function closeMdViewerModal() {
+            document.getElementById('modal-md-viewer').classList.add('hidden');
+        }
+
+        function copyMdViewerContent() {
+            if (!currentViewingMarkdown.content) return;
+            navigator.clipboard.writeText(currentViewingMarkdown.content).then(() => {
+                const btn = document.getElementById('btn-mdview-copy');
+                const prevHtml = btn.innerHTML;
+                btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400"></i> <span class="text-emerald-400">Copié !</span>';
+                lucide.createIcons();
+                setTimeout(() => {
+                    btn.innerHTML = prevHtml;
+                    lucide.createIcons();
+                }, 2000);
+            }).catch(e => {
+                alert("Erreur lors de la copie dans le presse-papier.");
+            });
+        }
+
+        function downloadMdViewerContent() {
+            if (!currentViewingMarkdown.content) return;
+            const blob = new Blob([currentViewingMarkdown.content], { type: 'text/markdown;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentViewingMarkdown.filename || 'document.md';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const mdModal = document.getElementById('modal-md-viewer');
+                if (mdModal && !mdModal.classList.contains('hidden')) {
+                    closeMdViewerModal();
+                }
+            }
+        });
     </script>
 </body>
 </html>

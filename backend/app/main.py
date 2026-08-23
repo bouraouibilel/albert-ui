@@ -1,10 +1,13 @@
+import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-import os
+
 from app.core.config import settings
-from app.api import collections, documents, rag
+from app.api import collections, documents, rag, watchers
+from app.services.watcher_service import watcher_service
 
 # Import résilient du logger
 try:
@@ -13,10 +16,19 @@ except ImportError:
     def get_recent_logs():
         return []
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Démarrage du listener de surveillance automatique des dossiers en arrière-plan
+    await watcher_service.start_background_listener()
+    yield
+    # Arrêt gracieux du listener
+    await watcher_service.stop_background_listener()
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="API d'Administration pour l'ingestion, la pré-conversion Markdown (.md), et le RAG Albert API (DINUM/Etalab) pour Open WebUI"
+    description="API d'Administration pour l'ingestion, la pré-conversion Markdown (.md), et le RAG Albert API (DINUM/Etalab) pour Open WebUI",
+    lifespan=lifespan
 )
 
 # Configuration CORS
@@ -35,6 +47,7 @@ app.mount("/static/images", StaticFiles(directory=settings.IMAGE_STORAGE_DIR), n
 app.include_router(collections.router, prefix=settings.API_V1_STR)
 app.include_router(documents.router, prefix=settings.API_V1_STR)
 app.include_router(rag.router, prefix=settings.API_V1_STR)
+app.include_router(watchers.router, prefix=settings.API_V1_STR)
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "templates", "index.html")
 

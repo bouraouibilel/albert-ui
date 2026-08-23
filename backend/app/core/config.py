@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     ALBERT_API_BASE_URL: str = os.getenv("ALBERT_API_BASE_URL", "https://albert.api.etalab.gouv.fr/v1")
     ALBERT_API_KEY: str = os.getenv("ALBERT_API_KEY", "")
     
+    STORAGE_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "storage")
     UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "storage", "uploads")
     CONVERTED_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "storage", "converted")
     IMAGE_STORAGE_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "storage", "images")
