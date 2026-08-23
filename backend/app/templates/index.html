@@ -21,12 +21,94 @@
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+        /* --- THEME LIGHT --- */
+        html[data-theme="light"], html[data-theme="light"] body {
+            background-color: #f8fafc !important;
+            color: #0f172a !important;
+        }
+        html[data-theme="light"] header {
+            background-color: rgba(255, 255, 255, 0.9) !important;
+            border-color: #e2e8f0 !important;
+        }
+        html[data-theme="light"] .bg-slate-950,
+        html[data-theme="light"] .bg-slate-950\/60,
+        html[data-theme="light"] .bg-slate-950\/80 {
+            background-color: #f1f5f9 !important;
+        }
+        html[data-theme="light"] .bg-slate-900,
+        html[data-theme="light"] .bg-slate-900\/80 {
+            background-color: #ffffff !important;
+            border-color: #e2e8f0 !important;
+            color: #0f172a !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        html[data-theme="light"] .bg-slate-900\/40,
+        html[data-theme="light"] .bg-slate-900\/60 {
+            background-color: #f8fafc !important;
+        }
+        html[data-theme="light"] .border-slate-800,
+        html[data-theme="light"] .border-slate-800\/60,
+        html[data-theme="light"] .border-slate-800\/80,
+        html[data-theme="light"] .border-slate-700 {
+            border-color: #e2e8f0 !important;
+        }
+        html[data-theme="light"] .hover\:border-slate-700:hover {
+            border-color: #cbd5e1 !important;
+        }
+        html[data-theme="light"] .hover\:bg-slate-800:hover,
+        html[data-theme="light"] .hover\:bg-slate-900:hover {
+            background-color: #f1f5f9 !important;
+        }
+        html[data-theme="light"] .text-white { color: #0f172a !important; }
+        html[data-theme="light"] .text-slate-100 { color: #0f172a !important; }
+        html[data-theme="light"] .text-slate-200 { color: #1e293b !important; }
+        html[data-theme="light"] .text-slate-300 { color: #334155 !important; }
+        html[data-theme="light"] .text-slate-400 { color: #64748b !important; }
+        html[data-theme="light"] .text-slate-500 { color: #64748b !important; }
+        html[data-theme="light"] textarea,
+        html[data-theme="light"] input,
+        html[data-theme="light"] select {
+            background-color: #ffffff !important;
+            border-color: #cbd5e1 !important;
+            color: #0f172a !important;
+        }
+        html[data-theme="light"] #view-preview {
+            background-color: #ffffff !important;
+            color: #1e293b !important;
+            border-color: #e2e8f0 !important;
+        }
+        html[data-theme="light"] .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        html[data-theme="light"] .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; }
+        html[data-theme="light"] #logs-console-container {
+            background-color: #f8fafc !important;
+            border-color: #e2e8f0 !important;
+            color: #1e293b !important;
+        }
+
+        /* --- THEME MIDNIGHT --- */
+        html[data-theme="midnight"], html[data-theme="midnight"] body {
+            background-color: #030712 !important;
+            color: #f9fafb !important;
+        }
+        html[data-theme="midnight"] .bg-slate-950 { background-color: #0b0f1a !important; }
+        html[data-theme="midnight"] .bg-slate-900 { background-color: #111827 !important; border-color: #1f2937 !important; }
+        html[data-theme="midnight"] .border-slate-800 { border-color: #1f2937 !important; }
+
+        /* --- THEME EMERALD --- */
+        html[data-theme="emerald"], html[data-theme="emerald"] body {
+            background-color: #021a14 !important;
+            color: #ecfdf5 !important;
+        }
+        html[data-theme="emerald"] .bg-slate-950 { background-color: #04271e !important; }
+        html[data-theme="emerald"] .bg-slate-900 { background-color: #06382b !important; border-color: #0b4e3d !important; }
+        html[data-theme="emerald"] .border-slate-800 { border-color: #0b4e3d !important; }
     </style>
 </head>
-<body class="h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100 selection:bg-blue-600 selection:text-white">
+<body class="h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100 selection:bg-blue-600 selection:text-white transition-colors duration-200">
 
     <!-- Header Navigation -->
-    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 transition-colors duration-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">
@@ -50,6 +132,33 @@
                         <i data-lucide="flask-conical" class="w-4 h-4"></i> RAG Sandbox
                     </button>
                 </nav>
+
+                <!-- Theme Switcher Dropdown -->
+                <div class="relative">
+                    <button onclick="toggleThemeDropdown(event)" id="theme-menu-btn" class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-semibold rounded-xl transition flex items-center gap-2" title="Changer le thème">
+                        <i data-lucide="palette" class="w-4 h-4 text-indigo-400"></i>
+                        <span id="theme-current-name">Thème</span>
+                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+                    </button>
+                    <div id="theme-dropdown-menu" class="hidden absolute right-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-1.5 z-50 space-y-1 text-xs">
+                        <button onclick="setTheme('dark')" class="w-full px-3 py-2 text-left rounded-lg hover:bg-slate-800 flex items-center justify-between text-slate-300 hover:text-white">
+                            <span class="flex items-center gap-2"><i data-lucide="moon" class="w-3.5 h-3.5 text-blue-400"></i> Sombre (Slate)</span>
+                            <i data-lucide="check" id="check-dark" class="w-3.5 h-3.5 text-blue-400 hidden"></i>
+                        </button>
+                        <button onclick="setTheme('light')" class="w-full px-3 py-2 text-left rounded-lg hover:bg-slate-800 flex items-center justify-between text-slate-300 hover:text-white">
+                            <span class="flex items-center gap-2"><i data-lucide="sun" class="w-3.5 h-3.5 text-amber-400"></i> Clair (Light)</span>
+                            <i data-lucide="check" id="check-light" class="w-3.5 h-3.5 text-blue-400 hidden"></i>
+                        </button>
+                        <button onclick="setTheme('midnight')" class="w-full px-3 py-2 text-left rounded-lg hover:bg-slate-800 flex items-center justify-between text-slate-300 hover:text-white">
+                            <span class="flex items-center gap-2"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i> Minuit Indigo</span>
+                            <i data-lucide="check" id="check-midnight" class="w-3.5 h-3.5 text-blue-400 hidden"></i>
+                        </button>
+                        <button onclick="setTheme('emerald')" class="w-full px-3 py-2 text-left rounded-lg hover:bg-slate-800 flex items-center justify-between text-slate-300 hover:text-white">
+                            <span class="flex items-center gap-2"><i data-lucide="leaf" class="w-3.5 h-3.5 text-emerald-400"></i> Émeraude DINUM</span>
+                            <i data-lucide="check" id="check-emerald" class="w-3.5 h-3.5 text-blue-400 hidden"></i>
+                        </button>
+                    </div>
+                </div>
 
                 <button onclick="openLogsModal()" class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-semibold rounded-xl transition flex items-center gap-2" title="Journal en temps réel des appels LLM et conversions">
                     <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i> Logs LLM & API
@@ -364,10 +473,66 @@
         let currentVisibilityFilter = 'private';
 
         document.addEventListener("DOMContentLoaded", () => {
+            const savedTheme = localStorage.getItem('albert_rag_theme') || 'dark';
+            setTheme(savedTheme);
             lucide.createIcons();
             checkHealth();
             loadCollections();
         });
+
+        function toggleThemeDropdown(event) {
+            if (event) event.stopPropagation();
+            const dropdown = document.getElementById('theme-dropdown-menu');
+            dropdown.classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('theme-dropdown-menu');
+            const btn = document.getElementById('theme-menu-btn');
+            if (dropdown && !dropdown.classList.contains('hidden') && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        function setTheme(themeName) {
+            const validThemes = ['dark', 'light', 'midnight', 'emerald'];
+            const activeTheme = validThemes.includes(themeName) ? themeName : 'dark';
+
+            document.documentElement.setAttribute('data-theme', activeTheme);
+            localStorage.setItem('albert_rag_theme', activeTheme);
+
+            validThemes.forEach(t => {
+                const check = document.getElementById(`check-${t}`);
+                if (check) {
+                    if (t === activeTheme) check.classList.remove('hidden');
+                    else check.classList.add('hidden');
+                }
+            });
+
+            const labelMap = {
+                dark: 'Sombre',
+                light: 'Clair',
+                midnight: 'Minuit',
+                emerald: 'Émeraude'
+            };
+            const labelEl = document.getElementById('theme-current-name');
+            if (labelEl) labelEl.textContent = labelMap[activeTheme] || 'Thème';
+
+            const dropdown = document.getElementById('theme-dropdown-menu');
+            if (dropdown) dropdown.classList.add('hidden');
+
+            if (window.mermaid) {
+                try {
+                    mermaid.initialize({
+                        startOnLoad: false,
+                        theme: activeTheme === 'light' ? 'default' : 'dark',
+                        securityLevel: 'loose'
+                    });
+                } catch (e) {}
+            }
+
+            lucide.createIcons();
+        }
 
         async function checkHealth() {
             try {
@@ -601,12 +766,15 @@
                     let color = "text-slate-300";
                     if (l.level === "ERROR") color = "text-rose-400 font-semibold";
                     else if (l.level === "WARNING") color = "text-amber-400";
-                    else if (l.category.includes("LLM")) color = "text-emerald-400";
-                    else if (l.category.includes("CONVERTER")) color = "text-blue-400";
+                    else if (l.category && l.category.includes("LLM")) color = "text-emerald-400";
+                    else if (l.category && l.category.includes("CONVERTER")) color = "text-blue-400";
 
-                    return `<div class="${color} py-0.5 border-b border-slate-900/60 flex items-start gap-2">
-                        <span class="text-slate-500 shrink-0">[${l.category}]</span>
-                        <span class="break-all">${l.message}</span>
+                    const timeBadge = l.timestamp ? `<span class="text-slate-400 font-mono text-[10px] shrink-0 bg-slate-950/80 px-1.5 py-0.5 rounded border border-slate-800/80">${l.timestamp}</span>` : '';
+
+                    return `<div class="${color} py-1 border-b border-slate-800/40 flex items-start gap-2 text-xs">
+                        ${timeBadge}
+                        <span class="text-slate-400 font-semibold shrink-0">[${l.category}]</span>
+                        <span class="break-all flex-1">${l.message}</span>
                     </div>`;
                 }).join('');
 

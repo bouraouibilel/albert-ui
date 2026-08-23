@@ -21,10 +21,12 @@ logging.basicConfig(
 
 logger = logging.getLogger("albert_admin")
 
+import datetime
 LOG_HISTORY: List[dict] = []
 
 def log_event(category: str, message: str, level: str = "INFO"):
     formatted_msg = f"[{category}] {message}"
+    timestamp = datetime.datetime.now().strftime("%H:%M:%S")
     try:
         if level == "ERROR":
             logger.error(formatted_msg)
@@ -38,11 +40,12 @@ def log_event(category: str, message: str, level: str = "INFO"):
         logger.info(clean_msg)
         
     LOG_HISTORY.append({
+        "timestamp": timestamp,
         "category": category,
         "message": message,
         "level": level
     })
-    if len(LOG_HISTORY) > 100:
+    if len(LOG_HISTORY) > 200:
         LOG_HISTORY.pop(0)
 
 def get_recent_logs() -> List[dict]:
