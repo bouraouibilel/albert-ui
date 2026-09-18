@@ -1595,7 +1595,10 @@
             isFetchingWatcherData = true;
 
             try {
-                const res = await fetch(`${API_BASE}/watchers/stats`);
+                let res = await fetch(`${API_BASE}/watchers/stats`);
+                if (!res.ok) {
+                    res = await fetch(`${API_BASE}/watchers`);
+                }
                 if (!res.ok) return;
                 const data = await res.json();
 

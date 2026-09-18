@@ -28,10 +28,11 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="API d'Administration pour l'ingestion, la pré-conversion Markdown (.md), et le RAG Albert API (DINUM/Etalab) pour Open WebUI",
-    lifespan=lifespan
+    lifespan=lifespan,
+    redirect_slashes=False
 )
 
-# Configuration CORS
+# Configuration CORS pour autoriser l'ensemble des domaines et reverse proxies (NGINX / MNS / F5)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
