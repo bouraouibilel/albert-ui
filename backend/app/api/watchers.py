@@ -10,15 +10,24 @@ from app.services.watcher_service import watcher_service
 router = APIRouter(prefix="/watchers", tags=["watchers"])
 
 class WatcherCreateRequest(BaseModel):
-    collection_id: str = Field(..., description="ID de la collection Albert cible")
+    collection_id: Optional[str] = Field(None, description="ID de la collection Albert cible")
     collection_name: Optional[str] = Field("", description="Nom lisible de la collection")
     folder_path: str = Field(..., description="Chemin physique absolu du répertoire à écouter")
     filter_pattern: Optional[str] = Field("*", description="Filtre sur le nom de fichier (ex: '*PASRAU*.docx', '*.pdf')")
     enabled: Optional[bool] = Field(True, description="Si l'écoute est activée immédiatement")
+    is_active: Optional[bool] = Field(True, description="Alias pour enabled")
     recursive: Optional[bool] = Field(False, description="Parcourir récursivement les sous-dossiers")
     watcher_id: Optional[str] = Field(None, description="ID si mise à jour")
 
+class WatcherUpdateRequest(BaseModel):
+    is_active: Optional[bool] = None
+    enabled: Optional[bool] = None
+    folder_path: Optional[str] = None
+    collection_id: Optional[str] = None
+    collection_name: Optional[str] = None
+
 @router.get("", response_model=Dict[str, Any])
+@router.get("/stats", response_model=Dict[str, Any])
 async def list_watchers():
     """
     Récupère la liste des dossiers d'écoute configurés ainsi que les statistiques globales.
@@ -42,7 +51,10 @@ async def list_watchers():
             "total_detected": total_detected,
             "processing_count": processing_count,
             "completed_count": completed_count,
-            "error_count": error_count
+            "error_count": error_count,
+            "processing": processing_count,
+            "completed": completed_count,
+            "errors": error_count
         }
     }
 
@@ -65,7 +77,6 @@ async def get_live_status(
     completed_count = sum(1 for h in all_history if h.get("status") == "completed")
     error_count = sum(1 for h in all_history if h.get("status") == "error")
 
-    # Filtrage de la portion d'historique renvoyée
     filtered_history = all_history
     if status and status.lower() != "all":
         filtered_history = [i for i in all_history if i.get("status") == status.lower()]
@@ -79,7 +90,10 @@ async def get_live_status(
             "total_detected": total_detected,
             "processing_count": processing_count,
             "completed_count": completed_count,
-            "error_count": error_count
+            "error_count": error_count,
+            "processing": processing_count,
+            "completed": completed_count,
+            "errors": error_count
         },
         "history": filtered_history
     }
@@ -90,12 +104,16 @@ async def create_or_update_watcher(payload: WatcherCreateRequest):
     Configure ou met à jour l'écoute d'un répertoire pour une collection Albert.
     """
     try:
+        col_id = payload.collection_id or payload.collection_name or "default"
+        col_name = payload.collection_name or payload.collection_id or "default"
+        is_enabled = payload.enabled if payload.enabled is not None else (payload.is_active if payload.is_active is not None else True)
+
         watcher = watcher_service.create_or_update_watcher(
-            collection_id=payload.collection_id,
-            collection_name=payload.collection_name,
+            collection_id=col_id,
+            collection_name=col_name,
             folder_path=payload.folder_path,
             filter_pattern=payload.filter_pattern,
-            enabled=payload.enabled,
+            enabled=is_enabled,
             recursive=payload.recursive,
             watcher_id=payload.watcher_id
         )
@@ -106,6 +124,20 @@ async def create_or_update_watcher(payload: WatcherCreateRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.put("/{watcher_id}")
+async def update_watcher(watcher_id: str, payload: WatcherUpdateRequest):
+    """
+    Met à jour l'état d'un dossier d'écoute (toggle activé/pause ou modification).
+    """
+    updated = watcher_service.toggle_watcher(watcher_id)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Dossier d'écoute introuvable")
+    return {
+        "status": "success",
+        "message": "Dossier d'écoute mis à jour",
+        "watcher": updated
+    }
 
 @router.delete("/{watcher_id}")
 async def delete_watcher(watcher_id: str):
@@ -142,6 +174,14 @@ async def get_history(
     Récupère le journal et l'état de suivi en temps réel de tous les fichiers détectés.
     """
     return watcher_service.get_history(status=status, collection_id=collection_id, limit=limit)
+
+@router.delete("/history")
+async def clear_history():
+    """
+    Purge l'historique complet d'ingestion.
+    """
+    watcher_service.clear_history()
+    return {"status": "success", "message": "Historique d'ingestion purgé"}
 
 @router.post("/scan-now")
 async def scan_folders_now():
