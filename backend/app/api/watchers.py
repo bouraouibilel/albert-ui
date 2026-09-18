@@ -27,7 +27,7 @@ class WatcherUpdateRequest(BaseModel):
     collection_name: Optional[str] = None
 
 @router.get("", response_model=Dict[str, Any])
-@router.get("/stats", response_model=Dict[str, Any])
+@router.get("/", response_model=Dict[str, Any])
 async def list_watchers():
     """
     Récupère la liste des dossiers d'écoute configurés ainsi que les statistiques globales.
@@ -58,7 +58,16 @@ async def list_watchers():
         }
     }
 
+@router.get("/stats", response_model=Dict[str, Any])
+@router.get("/stats/", response_model=Dict[str, Any])
+async def get_watcher_stats():
+    """
+    Endpoint dédié aux statistiques globales et à la liste des dossiers d'écoute.
+    """
+    return await list_watchers()
+
 @router.get("/live", response_model=Dict[str, Any])
+@router.get("/live/", response_model=Dict[str, Any])
 async def get_live_status(
     status: Optional[str] = Query(None, description="Filtrer l'historique par statut"),
     limit: int = Query(200, ge=1, le=500)
@@ -99,6 +108,7 @@ async def get_live_status(
     }
 
 @router.post("", response_model=Dict[str, Any])
+@router.post("/", response_model=Dict[str, Any])
 async def create_or_update_watcher(payload: WatcherCreateRequest):
     """
     Configure ou met à jour l'écoute d'un répertoire pour une collection Albert.
@@ -126,6 +136,7 @@ async def create_or_update_watcher(payload: WatcherCreateRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.put("/{watcher_id}")
+@router.put("/{watcher_id}/")
 async def update_watcher(watcher_id: str, payload: WatcherUpdateRequest):
     """
     Met à jour l'état d'un dossier d'écoute (toggle activé/pause ou modification).
@@ -140,6 +151,7 @@ async def update_watcher(watcher_id: str, payload: WatcherUpdateRequest):
     }
 
 @router.delete("/{watcher_id}")
+@router.delete("/{watcher_id}/")
 async def delete_watcher(watcher_id: str):
     """
     Supprime la configuration d'écoute d'un répertoire.
@@ -150,6 +162,7 @@ async def delete_watcher(watcher_id: str):
     return {"status": "success", "message": f"Dossier d'écoute #{watcher_id} supprimé"}
 
 @router.post("/{watcher_id}/toggle")
+@router.post("/{watcher_id}/toggle/")
 async def toggle_watcher(watcher_id: str):
     """
     Active ou met en pause l'écoute automatique d'un répertoire.
@@ -165,6 +178,7 @@ async def toggle_watcher(watcher_id: str):
     }
 
 @router.get("/history", response_model=List[Dict[str, Any]])
+@router.get("/history/", response_model=List[Dict[str, Any]])
 async def get_history(
     status: Optional[str] = Query(None, description="Filtrer par statut: processing, completed, error"),
     collection_id: Optional[str] = Query(None, description="Filtrer par collection"),
@@ -176,6 +190,7 @@ async def get_history(
     return watcher_service.get_history(status=status, collection_id=collection_id, limit=limit)
 
 @router.delete("/history")
+@router.delete("/history/")
 async def clear_history():
     """
     Purge l'historique complet d'ingestion.
@@ -184,6 +199,7 @@ async def clear_history():
     return {"status": "success", "message": "Historique d'ingestion purgé"}
 
 @router.post("/scan-now")
+@router.post("/scan-now/")
 async def scan_folders_now():
     """
     Déclenche manuellement et immédiatement un scan de tous les dossiers d'écoute actifs.
@@ -196,6 +212,7 @@ async def scan_folders_now():
     }
 
 @router.post("/history/{item_id}/retry")
+@router.post("/history/{item_id}/retry/")
 async def retry_file(item_id: str):
     """
     Relance le traitement d'un document qui a échoué.
@@ -206,6 +223,7 @@ async def retry_file(item_id: str):
     return {"status": "success", "message": "Traitement du document relancé avec succès"}
 
 @router.get("/history/{item_id}/markdown", response_model=Dict[str, Any])
+@router.get("/history/{item_id}/markdown/", response_model=Dict[str, Any])
 async def get_watcher_history_markdown(item_id: str):
     """
     Récupère le contenu du document Markdown (.md) converti issu du watcher.
@@ -253,6 +271,7 @@ async def get_watcher_history_markdown(item_id: str):
     }
 
 @router.delete("/history/{item_id}")
+@router.delete("/history/{item_id}/")
 async def delete_history_item(item_id: str):
     """
     Supprime une ligne d'historique de suivi.
