@@ -1771,22 +1771,27 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/watchers/`, {
+                const res = await fetch(`${API_BASE}/watchers`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
+                        collection_id: colSelect,
                         collection_name: colSelect,
                         folder_path: folderPath,
+                        enabled: true,
                         is_active: true
                     })
                 });
 
-                if (!res.ok) throw new Error("Erreur de création du watcher");
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.detail || `HTTP ${res.status}`);
+                }
 
                 closeCreateWatcherModal();
                 fetchLiveWatcherData(true);
             } catch (err) {
-                alert("Erreur lors de la création du dossier d'écoute.");
+                alert(`Erreur lors de la création du dossier d'écoute : ${err.message}`);
             }
         }
 
