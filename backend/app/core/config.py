@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
     
+    # Identifiants de la page d'authentification d'administration
+    ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "admin")
+    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "albert2026")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "albert_rag_admin_secret_key_2026")
+
     ALBERT_API_BASE_URL: str = os.getenv("ALBERT_API_BASE_URL", "https://albert.api.etalab.gouv.fr/v1")
     ALBERT_API_KEY: str = os.getenv("ALBERT_API_KEY", "")
     
@@ -19,7 +24,7 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "storage", "uploads")
     CONVERTED_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "storage", "converted")
     IMAGE_STORAGE_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "storage", "images")
-    IMAGE_BASE_URL: str = os.getenv("IMAGE_BASE_URL", "http://localhost:8000/static/images")
+    IMAGE_BASE_URL: str = os.getenv("IMAGE_BASE_URL", "/static/images")
 
     model_config = SettingsConfigDict(
         env_file=env_path if os.path.exists(env_path) else None,

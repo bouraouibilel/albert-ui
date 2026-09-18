@@ -1,17 +1,21 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional, List
 import os
 import uuid
 import json
+import zipfile
+import io
+import re
+from pathlib import Path
+
 from app.core.config import settings
 from app.services.converter import DocumentConverter
 from app.services.albert_client import albert_client
 from app.api.collections import get_local_collections, save_local_collections
 
 router = APIRouter(prefix="/documents", tags=["Documents & Conversion"])
-
-from pathlib import Path
 
 LOCAL_DOCUMENTS_META_FILE = os.path.join(settings.CONVERTED_DIR, "documents_meta.json")
 
@@ -33,6 +37,10 @@ class IngestRequest(BaseModel):
     filename: str
     markdown_content: str
     original_format: Optional[str] = ".md"
+
+class DownloadPackRequest(BaseModel):
+    filename: str
+    markdown_content: str
 
 @router.get("/")
 async def list_documents(collection_id: Optional[str] = Query(None, description="ID de la collection cible")):
@@ -73,11 +81,9 @@ async def get_document_markdown(
     document_id: str,
     filename: Optional[str] = Query(None, description="Nom ou fragment de nom de fichier")
 ):
-    """
-    Récupère le contenu Markdown (.md) complet d'un document converti.
-    Recherche d'abord par nom direct, puis par ID dans documents_meta.json / watchers_history.json,
-    et enfin par recherche dans storage/converted/.
-    """
+    if not isinstance(filename, str):
+        filename = None
+
     converted_dir = settings.CONVERTED_DIR
     target_md_path = None
     target_filename = None
@@ -109,25 +115,7 @@ async def get_document_markdown(
                         original_filename = d.get("name", original_filename)
                         break
 
-    # 3. Chercher dans watchers_history.json
-    if not target_md_path:
-        try:
-            from app.services.watcher_service import watcher_service
-            history = watcher_service.get_history(limit=500)
-            for h in history:
-                if str(h.get("albert_document_id")) == str(document_id) or str(h.get("id")) == str(document_id) or h.get("filename") == filename:
-                    md_name = h.get("markdown_file")
-                    if md_name:
-                        p = os.path.join(converted_dir, md_name)
-                        if os.path.exists(p):
-                            target_md_path = p
-                            target_filename = md_name
-                            original_filename = h.get("filename", original_filename)
-                            break
-        except Exception:
-            pass
-
-    # 4. Scan par suffixe / motif dans storage/converted/
+    # 3. Scan par suffixe dans storage/converted/
     if not target_md_path and os.path.exists(converted_dir):
         stem = Path(filename or document_id).stem
         if stem.startswith("doc_"):
@@ -260,15 +248,79 @@ async def ingest_document_to_albert(payload: IngestRequest):
         "document_metadata": new_doc_meta
     }
 
+@router.post("/download-pack")
+async def download_document_pack(payload: DownloadPackRequest):
+    """
+    Génère et télécharge un pack d'archive .ZIP contenant :
+    1. Le fichier Markdown (.md) avec des liens d'images relatifs autonomes (images/...).
+    2. Le dossier 'images/' contenant toutes les images physiques référencées dans le document.
+    """
+    clean_name = os.path.splitext(payload.filename)[0]
+    md_filename = f"{clean_name}.md"
+    zip_filename = f"{clean_name}_pack.zip"
+
+    # Trouver toutes les images référencées dans le markdown_content: ![alt](chemin_ou_url)
+    img_matches = re.findall(r'!\[.*?\]\((.*?)\)', payload.markdown_content)
+
+    zip_buffer = io.BytesIO()
+    archive_markdown = payload.markdown_content
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        added_images = set()
+        for img_path in img_matches:
+            base_img_name = os.path.basename(img_path)
+            
+            # Recherche de l'image physique dans les sous-dossiers de settings.IMAGE_STORAGE_DIR
+            local_img_file = None
+            if os.path.exists(os.path.join(settings.IMAGE_STORAGE_DIR, base_img_name)):
+                local_img_file = os.path.join(settings.IMAGE_STORAGE_DIR, base_img_name)
+            else:
+                for root, dirs, files in os.walk(settings.IMAGE_STORAGE_DIR):
+                    if base_img_name in files:
+                        local_img_file = os.path.join(root, base_img_name)
+                        break
+
+            if local_img_file and os.path.exists(local_img_file):
+                if base_img_name not in added_images:
+                    zf.write(local_img_file, arcname=f"images/{base_img_name}")
+                    added_images.add(base_img_name)
+                # Remplacer le chemin dans le Markdown du ZIP pour cibler images/base_img_name
+                archive_markdown = archive_markdown.replace(img_path, f"images/{base_img_name}")
+
+        # Écrire le fichier Markdown à la racine du ZIP
+        zf.writestr(md_filename, archive_markdown.encode("utf-8"))
+
+    zip_buffer.seek(0)
+    return Response(
+        content=zip_buffer.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{zip_filename}"'
+        }
+    )
+
+@router.get("/{document_id}/download-pack")
+async def download_existing_document_pack(
+    document_id: str,
+    filename: Optional[str] = Query(None, description="Nom ou fragment de nom de fichier")
+):
+    """
+    Génère et télécharge le pack ZIP (.md + dossier images/) pour un document déjà indexé dans une collection.
+    """
+    doc_res = await get_document_markdown(document_id=document_id, filename=filename)
+    md_content = doc_res["markdown_content"]
+    real_filename = doc_res["filename"]
+
+    req = DownloadPackRequest(filename=real_filename, markdown_content=md_content)
+    return await download_document_pack(req)
+
 @router.delete("/{document_id}")
 async def delete_document(document_id: str):
     """
     Supprime un document d'une collection dans Albert API et nettoie les métadonnées locales.
     """
-    # 1. Appel Albert API pour supprimer le document distant
     await albert_client.delete_document(document_id)
 
-    # 2. Suppression dans les métadonnées locales documents_meta.json
     docs = get_local_docs()
     target_doc = None
     remaining_docs = []
@@ -279,7 +331,6 @@ async def delete_document(document_id: str):
             remaining_docs.append(d)
     save_local_docs(remaining_docs)
 
-    # 3. Décrémentation du compteur de documents dans les collections locales
     if target_doc and target_doc.get("collection_id"):
         target_col_id = str(target_doc.get("collection_id"))
         cols = get_local_collections()
@@ -289,7 +340,6 @@ async def delete_document(document_id: str):
                 col["document_count"] = max(0, curr_count - 1)
         save_local_collections(cols)
 
-    # 4. Nettoyage éventuel du dossier d'images associées au document
     if target_doc:
         import shutil
         col_folder = DocumentConverter._sanitize_path_segment(target_doc.get("collection_id") or "default")
@@ -306,4 +356,3 @@ async def delete_document(document_id: str):
         "message": f"Document {document_id} supprimé avec succès",
         "deleted_id": document_id
     }
-

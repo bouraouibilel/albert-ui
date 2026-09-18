@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
-from app.api import collections, documents, rag, watchers
+from app.api import collections, documents, rag, watchers, auth
 from app.services.watcher_service import watcher_service
 
 # Import résilient du logger
@@ -44,6 +44,7 @@ app.add_middleware(
 app.mount("/static/images", StaticFiles(directory=settings.IMAGE_STORAGE_DIR), name="static_images")
 
 # Inclusion des routeurs API
+app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(collections.router, prefix=settings.API_V1_STR)
 app.include_router(documents.router, prefix=settings.API_V1_STR)
 app.include_router(rag.router, prefix=settings.API_V1_STR)
