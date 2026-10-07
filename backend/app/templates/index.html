@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Albert RAG Admin - Studio de Conversion & API Manager</title>
+    <!-- Charte Officielle & Design Tokens -->
+    <link rel="stylesheet" href="/static/style/tokens.css">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -22,43 +24,123 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-        /* --- THEME LIGHT (CLAIR) CONTRAST FIX --- */
-        html[data-theme="light"], html[data-theme="light"] body {
+        /* --- CHARTE OFFICIELLE / THEME CLAIR (LIGHT #F8FAFC & #14285A) --- */
+        html[data-theme="official"], html[data-theme="light"],
+        html[data-theme="official"] body, html[data-theme="light"] body {
             background-color: #f8fafc !important;
             color: #0f172a !important;
         }
-        html[data-theme="light"] header {
-            background-color: rgba(255, 255, 255, 0.95) !important;
+        html[data-theme="official"] header, html[data-theme="light"] header {
+            background-color: #ffffff !important;
             border-color: #cbd5e1 !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
+        html[data-theme="official"] .header-title-text, html[data-theme="light"] .header-title-text {
+            color: #14285a !important;
+            background: none !important;
+            -webkit-text-fill-color: initial !important;
+        }
+        html[data-theme="official"] .bg-slate-950,
+        html[data-theme="official"] .bg-slate-950\/60,
+        html[data-theme="official"] .bg-slate-950\/70,
+        html[data-theme="official"] .bg-slate-950\/80,
         html[data-theme="light"] .bg-slate-950,
         html[data-theme="light"] .bg-slate-950\/60,
         html[data-theme="light"] .bg-slate-950\/70,
         html[data-theme="light"] .bg-slate-950\/80 {
             background-color: #f1f5f9 !important;
             border-color: #cbd5e1 !important;
+            color: #0f172a !important;
         }
+        html[data-theme="official"] .bg-slate-900,
+        html[data-theme="official"] .bg-slate-900\/80,
+        html[data-theme="official"] .bg-slate-900\/90,
+        html[data-theme="official"] .bg-slate-900\/40,
         html[data-theme="light"] .bg-slate-900,
-        html[data-theme="light"] .bg-slate-900\/80 {
+        html[data-theme="light"] .bg-slate-900\/80,
+        html[data-theme="light"] .bg-slate-900\/90,
+        html[data-theme="light"] .bg-slate-900\/40 {
             background-color: #ffffff !important;
             border-color: #cbd5e1 !important;
             color: #0f172a !important;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
         }
+
+        /* Banner Gradients in Official & Light Modes */
+        html[data-theme="official"] .bg-gradient-to-r,
+        html[data-theme="official"] .from-blue-950\/40,
+        html[data-theme="official"] .via-slate-900,
+        html[data-theme="official"] .to-indigo-950\/40,
+        html[data-theme="light"] .bg-gradient-to-r,
+        html[data-theme="light"] .from-blue-950\/40,
+        html[data-theme="light"] .via-slate-900,
+        html[data-theme="light"] .to-indigo-950\/40 {
+            background: linear-gradient(to right, #e8edf7, #ffffff, #e0f2fe) !important;
+            border-color: #cbd5e1 !important;
+            color: #0f172a !important;
+        }
+
+        html[data-theme="official"] .border-slate-800,
+        html[data-theme="official"] .border-slate-800\/60,
+        html[data-theme="official"] .border-slate-800\/80,
+        html[data-theme="official"] .border-slate-700,
+        html[data-theme="official"] .border-blue-900\/40,
         html[data-theme="light"] .border-slate-800,
         html[data-theme="light"] .border-slate-800\/60,
         html[data-theme="light"] .border-slate-800\/80,
-        html[data-theme="light"] .border-slate-700 {
+        html[data-theme="light"] .border-slate-700,
+        html[data-theme="light"] .border-blue-900\/40 {
             border-color: #cbd5e1 !important;
         }
 
-        /* Fix Button Colors and Contrast in Light Mode */
+        /* Buttons Primary #14285A */
+        html[data-theme="official"] button.bg-blue-600,
+        html[data-theme="official"] button.bg-indigo-600,
+        html[data-theme="official"] .bg-blue-600,
+        html[data-theme="official"] .bg-indigo-600,
+        html[data-theme="light"] button.bg-blue-600,
+        html[data-theme="light"] button.bg-indigo-600,
+        html[data-theme="light"] .bg-blue-600,
+        html[data-theme="light"] .bg-indigo-600 {
+            background-color: #14285a !important;
+            color: #ffffff !important;
+        }
+        html[data-theme="official"] button.bg-blue-600:hover,
+        html[data-theme="official"] button.bg-indigo-600:hover,
+        html[data-theme="official"] .bg-blue-600:hover,
+        html[data-theme="official"] .bg-indigo-600:hover,
+        html[data-theme="light"] button.bg-blue-600:hover,
+        html[data-theme="light"] button.bg-indigo-600:hover,
+        html[data-theme="light"] .bg-blue-600:hover,
+        html[data-theme="light"] .bg-indigo-600:hover {
+            background-color: #0f1f47 !important;
+            color: #ffffff !important;
+        }
+
+        /* Buttons Success #15803D */
+        html[data-theme="official"] .bg-emerald-600,
+        html[data-theme="light"] .bg-emerald-600 {
+            background-color: #15803d !important;
+            color: #ffffff !important;
+        }
+        html[data-theme="official"] .bg-emerald-600:hover,
+        html[data-theme="light"] .bg-emerald-600:hover {
+            background-color: #166534 !important;
+            color: #ffffff !important;
+        }
+
+        /* Secondary Buttons in Light/Official */
+        html[data-theme="official"] .bg-slate-800,
+        html[data-theme="official"] .bg-slate-800\/80,
         html[data-theme="light"] .bg-slate-800,
         html[data-theme="light"] .bg-slate-800\/80 {
             background-color: #e2e8f0 !important;
             color: #0f172a !important;
             border-color: #cbd5e1 !important;
         }
+        html[data-theme="official"] .bg-slate-800:hover,
+        html[data-theme="official"] .hover\:bg-slate-800:hover,
+        html[data-theme="official"] .hover\:bg-slate-700:hover,
         html[data-theme="light"] .bg-slate-800:hover,
         html[data-theme="light"] .hover\:bg-slate-800:hover,
         html[data-theme="light"] .hover\:bg-slate-700:hover {
@@ -66,28 +148,124 @@
             color: #0f172a !important;
         }
 
-        /* Enforce crisp white text on primary filled action buttons */
-        html[data-theme="light"] button.bg-blue-600,
-        html[data-theme="light"] button.bg-indigo-600,
-        html[data-theme="light"] button.bg-emerald-600,
-        html[data-theme="light"] button.bg-rose-600,
-        html[data-theme="light"] .bg-blue-600,
-        html[data-theme="light"] .bg-indigo-600,
-        html[data-theme="light"] .bg-emerald-600,
-        html[data-theme="light"] .bg-rose-600 {
+        /* Soft Badge & Action Backgrounds */
+        html[data-theme="official"] .bg-blue-600\/20,
+        html[data-theme="official"] .bg-blue-950,
+        html[data-theme="official"] .bg-blue-950\/60,
+        html[data-theme="light"] .bg-blue-600\/20,
+        html[data-theme="light"] .bg-blue-950,
+        html[data-theme="light"] .bg-blue-950\/60 {
+            background-color: #e8edf7 !important;
+            color: #14285a !important;
+            border-color: #cbd5e1 !important;
+        }
+        html[data-theme="official"] .bg-indigo-600\/20,
+        html[data-theme="official"] .bg-indigo-500\/10,
+        html[data-theme="official"] .bg-indigo-950,
+        html[data-theme="official"] .bg-indigo-950\/50,
+        html[data-theme="official"] .bg-indigo-900,
+        html[data-theme="light"] .bg-indigo-600\/20,
+        html[data-theme="light"] .bg-indigo-500\/10,
+        html[data-theme="light"] .bg-indigo-950,
+        html[data-theme="light"] .bg-indigo-950\/50,
+        html[data-theme="light"] .bg-indigo-900 {
+            background-color: #e0f2fe !important;
+            color: #0e7490 !important;
+            border-color: #bae6fd !important;
+        }
+        html[data-theme="official"] .bg-emerald-600\/20,
+        html[data-theme="official"] .bg-emerald-500\/10,
+        html[data-theme="official"] .bg-emerald-950,
+        html[data-theme="official"] .bg-emerald-950\/50,
+        html[data-theme="light"] .bg-emerald-600\/20,
+        html[data-theme="light"] .bg-emerald-500\/10,
+        html[data-theme="light"] .bg-emerald-950,
+        html[data-theme="light"] .bg-emerald-950\/50 {
+            background-color: #dcfce7 !important;
+            color: #15803d !important;
+            border-color: #86efac !important;
+        }
+        html[data-theme="official"] .border-indigo-800,
+        html[data-theme="official"] .border-indigo-800\/60,
+        html[data-theme="official"] .border-indigo-800\/40,
+        html[data-theme="official"] .border-indigo-500\/30,
+        html[data-theme="light"] .border-indigo-800,
+        html[data-theme="light"] .border-indigo-800\/60,
+        html[data-theme="light"] .border-indigo-800\/40,
+        html[data-theme="light"] .border-indigo-500\/30 {
+            border-color: #bae6fd !important;
+        }
+        html[data-theme="official"] .bg-rose-950\/40,
+        html[data-theme="official"] .bg-rose-500\/10,
+        html[data-theme="light"] .bg-rose-950\/40,
+        html[data-theme="light"] .bg-rose-500\/10 {
+            background-color: #fee2e2 !important;
+            color: #b91c1c !important;
+            border-color: #fca5a5 !important;
+        }
+        html[data-theme="official"] .bg-amber-950\/40,
+        html[data-theme="official"] .bg-amber-500\/10,
+        html[data-theme="light"] .bg-amber-950\/40,
+        html[data-theme="light"] .bg-amber-500\/10 {
+            background-color: #fef3c7 !important;
+            color: #92400e !important;
+            border-color: #fde68a !important;
+        }
+
+        /* Nav Buttons */
+        html[data-theme="official"] nav button, html[data-theme="light"] nav button {
+            color: #334155 !important;
+        }
+        html[data-theme="official"] nav button:hover, html[data-theme="light"] nav button:hover {
+            color: #0f172a !important;
+            background-color: #cbd5e1 !important;
+        }
+        html[data-theme="official"] nav button.bg-blue-600, html[data-theme="light"] nav button.bg-blue-600 {
+            background-color: #14285a !important;
             color: #ffffff !important;
         }
 
-        html[data-theme="light"] .text-white { color: #0f172a !important; }
+        /* Typography & Text High Contrast */
+        html[data-theme="official"] .text-white, html[data-theme="light"] .text-white { color: #0f172a !important; }
+        html[data-theme="official"] .text-slate-100,
+        html[data-theme="official"] .text-slate-200,
+        html[data-theme="official"] .text-slate-300,
         html[data-theme="light"] .text-slate-100,
         html[data-theme="light"] .text-slate-200,
         html[data-theme="light"] .text-slate-300 {
             color: #1e293b !important;
         }
+        html[data-theme="official"] .text-slate-400,
+        html[data-theme="official"] .text-slate-500,
         html[data-theme="light"] .text-slate-400,
         html[data-theme="light"] .text-slate-500 {
             color: #475569 !important;
         }
+        html[data-theme="official"] .text-indigo-400, html[data-theme="light"] .text-indigo-400,
+        html[data-theme="official"] .text-blue-400, html[data-theme="light"] .text-blue-400 {
+            color: #0e7490 !important;
+        }
+        html[data-theme="official"] .text-indigo-300, html[data-theme="light"] .text-indigo-300,
+        html[data-theme="official"] .text-blue-300, html[data-theme="light"] .text-blue-300 {
+            color: #14285a !important;
+        }
+        html[data-theme="official"] .text-emerald-400, html[data-theme="light"] .text-emerald-400,
+        html[data-theme="official"] .text-emerald-300, html[data-theme="light"] .text-emerald-300 {
+            color: #15803d !important;
+        }
+        html[data-theme="official"] .text-purple-400, html[data-theme="light"] .text-purple-400,
+        html[data-theme="official"] .text-purple-300, html[data-theme="light"] .text-purple-300 {
+            color: #6b21a8 !important;
+        }
+        html[data-theme="official"] .text-rose-400, html[data-theme="light"] .text-rose-400,
+        html[data-theme="official"] .text-rose-300, html[data-theme="light"] .text-rose-300 {
+            color: #b91c1c !important;
+        }
+
+        /* Form Inputs & Controls */
+        html[data-theme="official"] textarea,
+        html[data-theme="official"] input,
+        html[data-theme="official"] select,
         html[data-theme="light"] textarea,
         html[data-theme="light"] input,
         html[data-theme="light"] select {
@@ -95,18 +273,113 @@
             border-color: #cbd5e1 !important;
             color: #0f172a !important;
         }
-        html[data-theme="light"] #view-preview {
+
+        /* Dropdown Menu & Modals */
+        html[data-theme="official"] #theme-dropdown-menu,
+        html[data-theme="light"] #theme-dropdown-menu {
             background-color: #ffffff !important;
-            color: #1e293b !important;
             border-color: #cbd5e1 !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
         }
-        html[data-theme="light"] .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
-        html[data-theme="light"] .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; }
-        html[data-theme="light"] #logs-console-container {
+        html[data-theme="official"] #theme-dropdown-menu button,
+        html[data-theme="light"] #theme-dropdown-menu button {
+            color: #334155 !important;
+        }
+        html[data-theme="official"] #theme-dropdown-menu button:hover,
+        html[data-theme="light"] #theme-dropdown-menu button:hover {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+        }
+        html[data-theme="official"] .fixed.inset-0,
+        html[data-theme="light"] .fixed.inset-0 {
+            background-color: rgba(15, 23, 42, 0.4) !important;
+        }
+        html[data-theme="official"] #view-login,
+        html[data-theme="light"] #view-login {
             background-color: #f8fafc !important;
-            border-color: #cbd5e1 !important;
-            color: #1e293b !important;
         }
+        html[data-theme="official"] #view-login > div,
+        html[data-theme="light"] #view-login > div {
+            background-color: #ffffff !important;
+            border-color: #cbd5e1 !important;
+            box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.1);
+        }
+
+        /* Tables */
+        html[data-theme="official"] table thead,
+        html[data-theme="light"] table thead {
+            background-color: #f1f5f9 !important;
+            color: #334155 !important;
+            border-bottom: 1px solid #cbd5e1 !important;
+        }
+        html[data-theme="official"] table tbody tr:hover,
+        html[data-theme="light"] table tbody tr:hover {
+            background-color: #f8fafc !important;
+        }
+        html[data-theme="official"] table th,
+        html[data-theme="official"] table td,
+        html[data-theme="light"] table th,
+        html[data-theme="light"] table td {
+            border-color: #e2e8f0 !important;
+        }
+
+        /* Prose & Markdown Content */
+        html[data-theme="official"] #view-preview,
+        html[data-theme="light"] #view-preview,
+        html[data-theme="official"] #viewer-rendered-content,
+        html[data-theme="light"] #viewer-rendered-content {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+        }
+        html[data-theme="official"] .prose,
+        html[data-theme="light"] .prose {
+            color: #0f172a !important;
+        }
+        html[data-theme="official"] .prose h1,
+        html[data-theme="official"] .prose h2,
+        html[data-theme="official"] .prose h3,
+        html[data-theme="official"] .prose h4,
+        html[data-theme="light"] .prose h1,
+        html[data-theme="light"] .prose h2,
+        html[data-theme="light"] .prose h3,
+        html[data-theme="light"] .prose h4 {
+            color: #14285a !important;
+        }
+        html[data-theme="official"] .prose strong,
+        html[data-theme="light"] .prose strong {
+            color: #0f172a !important;
+        }
+        html[data-theme="official"] .prose code,
+        html[data-theme="light"] .prose code {
+            color: #0e7490 !important;
+            background-color: #f1f5f9 !important;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        html[data-theme="official"] .prose pre,
+        html[data-theme="light"] .prose pre {
+            background-color: #f8fafc !important;
+            color: #0f172a !important;
+            border: 1px solid #cbd5e1 !important;
+        }
+
+        /* Raw Code Viewers & Editors */
+        html[data-theme="official"] #markdown-editor,
+        html[data-theme="light"] #markdown-editor,
+        html[data-theme="official"] #viewer-raw-content,
+        html[data-theme="light"] #viewer-raw-content,
+        html[data-theme="official"] #logs-console-container,
+        html[data-theme="light"] #logs-console-container {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+        }
+
+        html[data-theme="official"] .custom-scrollbar::-webkit-scrollbar-track,
+        html[data-theme="light"] .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        html[data-theme="official"] .custom-scrollbar::-webkit-scrollbar-thumb,
+        html[data-theme="light"] .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; }
 
         /* --- THEME MIDNIGHT --- */
         html[data-theme="midnight"], html[data-theme="midnight"] body {
@@ -174,71 +447,91 @@
     </div>
 
     <!-- Header Navigation -->
-    <header id="app-header" class="hidden border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-40 transition-colors duration-200">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">
-                    A
-                </div>
-                <div>
-                    <h1 class="font-bold text-lg leading-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">Albert RAG Admin</h1>
-                    <p class="text-xs text-blue-400 font-medium">Conversion .md & Management Collections (DINUM / Open WebUI)</p>
+    <header id="app-header" class="hidden border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40 transition-colors duration-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 min-h-[4rem] flex flex-col md:flex-row items-center justify-between gap-3">
+            <!-- Left Branding -->
+            <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20 shrink-0">
+                        A
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-base sm:text-lg leading-tight text-white header-title-text">Albert RAG Admin</h1>
+                        <p class="text-[11px] sm:text-xs text-blue-400 font-medium">Conversion .md & Management Collections</p>
+                    </div>
                 </div>
             </div>
             
-            <div class="flex items-center gap-3">
-                <nav class="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800/80">
-                    <button onclick="switchTab('collections')" id="tab-btn-collections" class="px-4 py-2 text-sm font-medium rounded-lg transition-all bg-blue-600 text-white shadow-sm flex items-center gap-2">
-                        <i data-lucide="folder-kanban" class="w-4 h-4"></i> Collections
+            <!-- Right Controls & Navigation -->
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto justify-between md:justify-end">
+                <nav class="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800/80 shrink-0 overflow-x-auto max-w-full custom-scrollbar">
+                    <button onclick="switchTab('collections')" id="tab-btn-collections" class="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg transition-all bg-blue-600 text-white shadow-sm flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap">
+                        <i data-lucide="folder-kanban" class="w-4 h-4"></i>
+                        <span>Collections</span>
                     </button>
-                    <button onclick="switchTab('converter')" id="tab-btn-converter" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2">
-                        <i data-lucide="file-code" class="w-4 h-4"></i> Studio Conversion .MD
+                    <button onclick="switchTab('converter')" id="tab-btn-converter" class="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap">
+                        <i data-lucide="file-code" class="w-4 h-4"></i>
+                        <span>Studio .MD</span>
                     </button>
-                    <button onclick="switchTab('watchers')" id="tab-btn-watchers" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2 relative">
-                        <i data-lucide="folder-sync" class="w-4 h-4"></i> Dossiers d'Écoute
+                    <button onclick="switchTab('watchers')" id="tab-btn-watchers" class="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-1.5 sm:gap-2 shrink-0 relative whitespace-nowrap">
+                        <i data-lucide="folder-sync" class="w-4 h-4"></i>
+                        <span>Dossiers d'Écoute</span>
                         <span id="tab-watchers-badge" class="hidden px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-blue-500 text-white"></span>
                     </button>
-                    <button onclick="switchTab('sandbox')" id="tab-btn-sandbox" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-2">
-                        <i data-lucide="flask-conical" class="w-4 h-4"></i> RAG Sandbox
+                    <button onclick="switchTab('stats')" id="tab-btn-stats" class="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                        <span>Statistiques API</span>
+                    </button>
+                    <button onclick="switchTab('sandbox')" id="tab-btn-sandbox" class="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap">
+                        <i data-lucide="flask-conical" class="w-4 h-4"></i>
+                        <span>RAG Sandbox</span>
                     </button>
                 </nav>
 
-                <!-- Theme Switcher Dropdown -->
-                <div class="relative">
-                    <button onclick="toggleThemeDropdown(event)" id="theme-menu-btn" class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-semibold rounded-xl transition flex items-center gap-2" title="Changer le thème">
-                        <i data-lucide="palette" class="w-4 h-4 text-indigo-400"></i>
-                        <span id="theme-current-name">Thème</span>
-                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
-                    </button>
-                    <div id="theme-dropdown-menu" class="hidden absolute right-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-1.5 z-50 space-y-1 text-xs">
-                        <button onclick="setTheme('dark')" class="w-full px-3 py-2 text-left rounded-lg hover:bg-slate-800 flex items-center justify-between text-slate-300 hover:text-white">
-                            <span class="flex items-center gap-2"><i data-lucide="moon" class="w-3.5 h-3.5 text-blue-400"></i> Sombre (Slate)</span>
-                            <i data-lucide="check" id="check-dark" class="w-3.5 h-3.5 text-blue-400 hidden"></i>
+                <!-- Action Controls (Theme, Logs, Logout) -->
+                <div class="flex items-center gap-2 shrink-0 relative">
+                    <!-- Theme Switcher Dropdown -->
+                    <div class="relative">
+                        <button onclick="toggleThemeDropdown(event)" id="theme-menu-btn" class="px-3 py-1.5 sm:py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-semibold rounded-xl transition flex items-center gap-1.5" title="Changer le thème">
+                            <i data-lucide="palette" class="w-4 h-4 text-indigo-400"></i>
+                            <span id="theme-current-name" class="hidden sm:inline">Thème</span>
+                            <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
                         </button>
-                        <button onclick="setTheme('light')" class="w-full px-3 py-2 text-left rounded-lg hover:bg-slate-800 flex items-center justify-between text-slate-300 hover:text-white">
-                            <span class="flex items-center gap-2"><i data-lucide="sun" class="w-3.5 h-3.5 text-amber-400"></i> Clair (Light)</span>
-                            <i data-lucide="check" id="check-light" class="w-3.5 h-3.5 text-blue-400 hidden"></i>
-                        </button>
-                        <button onclick="setTheme('midnight')" class="w-full px-3 py-2 text-left rounded-lg hover:bg-slate-800 flex items-center justify-between text-slate-300 hover:text-white">
-                            <span class="flex items-center gap-2"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i> Minuit Indigo</span>
-                            <i data-lucide="check" id="check-midnight" class="w-3.5 h-3.5 text-blue-400 hidden"></i>
-                        </button>
-                        <button onclick="setTheme('emerald')" class="w-full px-3 py-2 text-left rounded-lg hover:bg-slate-800 flex items-center justify-between text-slate-300 hover:text-white">
-                            <span class="flex items-center gap-2"><i data-lucide="leaf" class="w-3.5 h-3.5 text-emerald-400"></i> Émeraude DINUM</span>
-                            <i data-lucide="check" id="check-emerald" class="w-3.5 h-3.5 text-blue-400 hidden"></i>
-                        </button>
+                        <div id="theme-dropdown-menu" class="hidden absolute right-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-1.5 z-50 space-y-1 text-xs">
+                            <button onclick="setTheme('official')" class="w-full px-3 py-2 text-left rounded-lg hover:bg-slate-800 flex items-center justify-between text-slate-300 hover:text-white">
+                                <span class="flex items-center gap-2"><i data-lucide="shield" class="w-3.5 h-3.5 text-blue-500"></i> Charte Officielle</span>
+                                <i data-lucide="check" id="check-official" class="w-3.5 h-3.5 text-blue-500 hidden"></i>
+                            </button>
+                            <button onclick="setTheme('light')" class="w-full px-3 py-2 text-left rounded-lg hover:bg-slate-800 flex items-center justify-between text-slate-300 hover:text-white">
+                                <span class="flex items-center gap-2"><i data-lucide="sun" class="w-3.5 h-3.5 text-amber-400"></i> Clair (Light)</span>
+                                <i data-lucide="check" id="check-light" class="w-3.5 h-3.5 text-blue-400 hidden"></i>
+                            </button>
+                            <button onclick="setTheme('dark')" class="w-full px-3 py-2 text-left rounded-lg hover:bg-slate-800 flex items-center justify-between text-slate-300 hover:text-white">
+                                <span class="flex items-center gap-2"><i data-lucide="moon" class="w-3.5 h-3.5 text-blue-400"></i> Sombre (Slate)</span>
+                                <i data-lucide="check" id="check-dark" class="w-3.5 h-3.5 text-blue-400 hidden"></i>
+                            </button>
+                            <button onclick="setTheme('midnight')" class="w-full px-3 py-2 text-left rounded-lg hover:bg-slate-800 flex items-center justify-between text-slate-300 hover:text-white">
+                                <span class="flex items-center gap-2"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i> Minuit Indigo</span>
+                                <i data-lucide="check" id="check-midnight" class="w-3.5 h-3.5 text-blue-400 hidden"></i>
+                            </button>
+                            <button onclick="setTheme('emerald')" class="w-full px-3 py-2 text-left rounded-lg hover:bg-slate-800 flex items-center justify-between text-slate-300 hover:text-white">
+                                <span class="flex items-center gap-2"><i data-lucide="leaf" class="w-3.5 h-3.5 text-emerald-400"></i> Émeraude DINUM</span>
+                                <i data-lucide="check" id="check-emerald" class="w-3.5 h-3.5 text-blue-400 hidden"></i>
+                            </button>
+                        </div>
                     </div>
+
+                    <button onclick="openLogsModal()" class="px-3 py-1.5 sm:py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-semibold rounded-xl transition flex items-center gap-1.5" title="Journal en temps réel des appels LLM et conversions">
+                        <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i>
+                        <span class="hidden sm:inline">Logs</span>
+                    </button>
+
+                    <!-- Logout Button -->
+                    <button onclick="handleLogout()" class="px-3 py-1.5 sm:py-2 bg-slate-900 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 border border-slate-800 text-xs font-semibold rounded-xl transition flex items-center gap-1.5" title="Se déconnecter de l'administration">
+                        <i data-lucide="log-out" class="w-4 h-4 text-rose-400"></i>
+                        <span class="hidden sm:inline">Déconnexion</span>
+                    </button>
                 </div>
-
-                <button onclick="openLogsModal()" class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-semibold rounded-xl transition flex items-center gap-2" title="Journal en temps réel des appels LLM et conversions">
-                    <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i> Logs LLM & API
-                </button>
-
-                <!-- Logout Button -->
-                <button onclick="handleLogout()" class="px-3 py-2 bg-slate-900 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 border border-slate-800 text-xs font-semibold rounded-xl transition flex items-center gap-1.5" title="Se déconnecter de l'administration">
-                    <i data-lucide="log-out" class="w-4 h-4 text-rose-400"></i>
-                    <span class="hidden sm:inline">Déconnexion</span>
-                </button>
             </div>
         </div>
     </header>
@@ -556,6 +849,211 @@
             </div>
         </section>
 
+        <!-- TAB 5: STATISTIQUES API & APPLI -->
+        <section id="tab-stats" class="space-y-6 hidden">
+            <!-- Header Banner -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl">
+                <div>
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="bar-chart-3" class="w-6 h-6 text-indigo-400"></i> Statistiques & Métriques Albert API
+                    </h2>
+                    <p class="text-slate-400 text-sm mt-1">Vue consolidée de vos collections, volumes d'indexation vectorielle, ingesteurs et appels LLM.</p>
+                </div>
+                <div>
+                    <button onclick="loadStatisticsOverview()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl shadow-lg shadow-indigo-600/20 transition flex items-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Rafraîchir les Statistiques
+                    </button>
+                </div>
+            </div>
+
+            <!-- Top 4 Summary Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Collections</span>
+                        <div class="p-2 rounded-xl bg-blue-500/10 text-blue-400">
+                            <i data-lucide="folder-kanban" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="overview-stat-collections-total" class="text-2xl font-bold text-white">0</span>
+                        <span class="text-xs text-slate-400">collections</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-[11px] text-slate-400 pt-1 border-t border-slate-800/60">
+                        <span class="text-emerald-400 font-semibold" id="overview-stat-collections-private">0 Privées</span>
+                        <span>•</span>
+                        <span class="text-blue-400 font-semibold" id="overview-stat-collections-public">0 Publiques</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Documents Indexés</span>
+                        <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+                            <i data-lucide="file-text" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="overview-stat-docs-total" class="text-2xl font-bold text-white">0</span>
+                        <span class="text-xs text-slate-400">fichiers</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-[11px] text-slate-400 pt-1 border-t border-slate-800/60">
+                        <span>Volume: <strong id="overview-stat-docs-size" class="text-indigo-300">0 MB</strong></span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Extraits & Chunks</span>
+                        <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                            <i data-lucide="layers" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="overview-stat-chunks-total" class="text-2xl font-bold text-emerald-400">0</span>
+                        <span class="text-xs text-slate-400">chunks RAG</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-[11px] text-slate-400 pt-1 border-t border-slate-800/60">
+                        <span>Recherche Vectorielle Albert API</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Fichiers Markdown</span>
+                        <div class="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+                            <i data-lucide="file-code" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="overview-stat-md-total" class="text-2xl font-bold text-purple-300">0</span>
+                        <span class="text-xs text-slate-400">convertis</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-[11px] text-slate-400 pt-1 border-t border-slate-800/60">
+                        <span>Taille locale: <strong id="overview-stat-md-size" class="text-purple-300">0 MB</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Left: Formats Breakdown & Watchers -->
+                <div class="space-y-6">
+                    <!-- Formats Breakdown Card -->
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                            <i data-lucide="pie-chart" class="w-4 h-4 text-indigo-400"></i> Distribution des Formats de Fichiers Indexés
+                        </h3>
+                        <div id="overview-formats-container" class="space-y-2">
+                            <p class="text-xs text-slate-500 text-center py-4">Chargement des données de formats...</p>
+                        </div>
+                    </div>
+
+                    <!-- Watcher Ingestion Summary -->
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                            <i data-lucide="folder-sync" class="w-4 h-4 text-indigo-400"></i> État de l'Ingestion Automatique
+                        </h3>
+                        <div class="grid grid-cols-2 gap-3 text-xs">
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                                <span class="text-slate-400 block">Dossiers Surveillés</span>
+                                <span id="overview-watch-folders" class="text-base font-bold text-white">0</span>
+                            </div>
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                                <span class="text-slate-400 block">Fichiers Détectés</span>
+                                <span id="overview-watch-detected" class="text-base font-bold text-indigo-400">0</span>
+                            </div>
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                                <span class="text-slate-400 block">Traités avec Succès</span>
+                                <span id="overview-watch-completed" class="text-base font-bold text-emerald-400">0</span>
+                            </div>
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                                <span class="text-slate-400 block">Erreurs d'Ingestion</span>
+                                <span id="overview-watch-errors" class="text-base font-bold text-rose-400">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: LLM & Service Status -->
+                <div class="space-y-6">
+                    <!-- LLM & Reranker Metrics -->
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                            <i data-lucide="cpu" class="w-4 h-4 text-indigo-400"></i> Métriques d'Utilisation des Modèles LLM
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+                                        <i data-lucide="eye" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-semibold text-white">Vision 24B Multimodal</p>
+                                        <p class="text-[10px] text-slate-400">Analyse et transcription schémas UML / Mermaid</p>
+                                    </div>
+                                </div>
+                                <span id="overview-llm-vision" class="text-sm font-bold text-indigo-300 font-mono">0 appels</span>
+                            </div>
+
+                            <div class="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                                        <i data-lucide="arrow-down-up" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-semibold text-white">Cross-Encoder Reranker</p>
+                                        <p class="text-[10px] text-slate-400">Réordonnancement des pertinences RAG (bge-reranker-v2-m3)</p>
+                                    </div>
+                                </div>
+                                <span id="overview-llm-rerank" class="text-sm font-bold text-emerald-300 font-mono">0 appels</span>
+                            </div>
+
+                            <div class="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                                        <i data-lucide="server" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-semibold text-white">Requêtes REST Albert API</p>
+                                        <p class="text-[10px] text-slate-400">Collections, documents & indexations</p>
+                                    </div>
+                                </div>
+                                <span id="overview-api-requests" class="text-sm font-bold text-blue-300 font-mono">0 requêtes</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Config & Health -->
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i> Connexion & Configuration Albert API
+                        </h3>
+                        <div class="space-y-2 text-xs">
+                            <div class="flex items-center justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+                                <span class="text-slate-400">URL Endpoint API</span>
+                                <span id="overview-api-url" class="font-mono text-slate-200 text-[11px] truncate max-w-[220px]">https://albert.api.etalab.gouv.fr/v1</span>
+                            </div>
+                            <div class="flex items-center justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+                                <span class="text-slate-400">Statut Jeton d'API (ALBERT_API_KEY)</span>
+                                <span id="overview-api-key-status" class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Configuré</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Usage Table -->
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                    <i data-lucide="users" class="w-4 h-4 text-indigo-400"></i> Consommation de Requêtes par Utilisateur / Client
+                </h3>
+                <div id="overview-users-usage-container" class="overflow-x-auto custom-scrollbar">
+                    <p class="text-xs text-slate-500 py-4 text-center">Aucune activité utilisateur enregistrée.</p>
+                </div>
+            </div>
+        </section>
+
     </main>
 
     <!-- Modal Logs LLM & API -->
@@ -734,7 +1232,7 @@
         let activeTab = 'collections';
 
         document.addEventListener("DOMContentLoaded", async () => {
-            const savedTheme = localStorage.getItem('albert_rag_theme') || 'dark';
+            const savedTheme = localStorage.getItem('albert_rag_theme') || 'official';
             setTheme(savedTheme);
             lucide.createIcons();
             
@@ -840,8 +1338,8 @@
         });
 
         function setTheme(themeName) {
-            const validThemes = ['dark', 'light', 'midnight', 'emerald'];
-            const activeTheme = validThemes.includes(themeName) ? themeName : 'dark';
+            const validThemes = ['official', 'light', 'dark', 'midnight', 'emerald'];
+            const activeTheme = validThemes.includes(themeName) ? themeName : 'official';
 
             document.documentElement.setAttribute('data-theme', activeTheme);
             localStorage.setItem('albert_rag_theme', activeTheme);
@@ -855,8 +1353,9 @@
             });
 
             const labelMap = {
-                dark: 'Sombre',
+                official: 'Charte Officielle',
                 light: 'Clair',
+                dark: 'Sombre',
                 midnight: 'Minuit',
                 emerald: 'Émeraude'
             };
@@ -890,7 +1389,7 @@
 
         function switchTab(tabId) {
             activeTab = tabId;
-            ['collections', 'converter', 'watchers', 'sandbox'].forEach(t => {
+            ['collections', 'converter', 'watchers', 'stats', 'sandbox'].forEach(t => {
                 const el = document.getElementById(`tab-${t}`);
                 if (el) el.classList.add('hidden');
                 const btn = document.getElementById(`tab-btn-${t}`);
@@ -909,7 +1408,123 @@
             if (tabId === 'watchers') {
                 fetchLiveWatcherData(true);
             }
+
+            if (tabId === 'stats') {
+                loadStatisticsOverview();
+            }
             lucide.createIcons();
+        }
+
+        async function loadStatisticsOverview() {
+            try {
+                const res = await fetch(`${API_BASE}/stats/overview`);
+                if (!res.ok) return;
+                const data = await res.json();
+
+                // 1. Collections
+                document.getElementById('overview-stat-collections-total').innerText = data.collections.total || 0;
+                document.getElementById('overview-stat-collections-private').innerText = `${data.collections.private || 0} Privées`;
+                document.getElementById('overview-stat-collections-public').innerText = `${data.collections.public || 0} Publiques`;
+
+                // 2. Documents
+                document.getElementById('overview-stat-docs-total').innerText = data.documents.total || 0;
+                document.getElementById('overview-stat-docs-size').innerText = `${data.documents.total_size_mb || 0} MB`;
+                document.getElementById('overview-stat-chunks-total').innerText = data.documents.estimated_chunks || 0;
+
+                // 3. Local MD
+                document.getElementById('overview-stat-md-total').innerText = data.local_storage.converted_md_files || 0;
+                document.getElementById('overview-stat-md-size').innerText = `${data.local_storage.converted_size_mb || 0} MB`;
+
+                // 4. Formats breakdown
+                const fmtContainer = document.getElementById('overview-formats-container');
+                const formats = data.documents.format_distribution || {};
+                const fmtEntries = Object.entries(formats);
+
+                if (fmtEntries.length === 0) {
+                    fmtContainer.innerHTML = '<p class="text-xs text-slate-500 py-3 text-center">Aucun document indexé pour le moment.</p>';
+                } else {
+                    const totalDocs = data.documents.total || 1;
+                    fmtContainer.innerHTML = fmtEntries.map(([ext, count]) => {
+                        const pct = Math.round((count / totalDocs) * 100);
+                        return `
+                            <div class="space-y-1">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="font-mono text-slate-300 font-semibold uppercase">${ext}</span>
+                                    <span class="text-slate-400">${count} document(s) (${pct}%)</span>
+                                </div>
+                                <div class="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+                                    <div class="bg-indigo-500 h-2 rounded-full" style="width: ${pct}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                // 5. Watchers
+                document.getElementById('overview-watch-folders').innerText = data.watchers.total_watchers || 0;
+                document.getElementById('overview-watch-detected').innerText = data.watchers.total_detected || 0;
+                document.getElementById('overview-watch-completed').innerText = data.watchers.completed_count || 0;
+                document.getElementById('overview-watch-errors').innerText = data.watchers.error_count || 0;
+
+                // 6. LLM activity metrics
+                document.getElementById('overview-llm-vision').innerText = `${data.activity_metrics.vision_24b_calls || 0} appel(s)`;
+                document.getElementById('overview-llm-rerank').innerText = `${data.activity_metrics.reranker_calls || 0} appel(s)`;
+                document.getElementById('overview-api-requests').innerText = `${data.activity_metrics.albert_api_requests || 0} requêtes`;
+
+                // 7. System & API Config
+                document.getElementById('overview-api-url').innerText = data.base_url || 'N/A';
+                const keyStatusEl = document.getElementById('overview-api-key-status');
+                if (data.api_configured) {
+                    keyStatusEl.className = "px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                    keyStatusEl.innerText = "Configurée & Active";
+                } else {
+                    keyStatusEl.className = "px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20";
+                    keyStatusEl.innerText = "Non configurée";
+                }
+
+                // 8. Users Request Consumption Breakdown Table
+                const userContainer = document.getElementById('overview-users-usage-container');
+                const users = data.users_usage || [];
+                if (users.length === 0) {
+                    userContainer.innerHTML = '<p class="text-xs text-slate-500 py-4 text-center">Aucune activité utilisateur enregistrée pour le moment.</p>';
+                } else {
+                    userContainer.innerHTML = `
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold">
+                                <tr>
+                                    <th class="p-3">Utilisateur / Identifiant</th>
+                                    <th class="p-3">Adresse IP Client</th>
+                                    <th class="p-3">Total Requêtes</th>
+                                    <th class="p-3">Requêtes RAG</th>
+                                    <th class="p-3">Appels LLM (Vision / Rerank)</th>
+                                    <th class="p-3 text-right">Dernière Activité</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/60">
+                                ${users.map(u => `
+                                    <tr class="hover:bg-slate-950/40">
+                                        <td class="p-3 font-semibold text-white flex items-center gap-2">
+                                            <div class="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-[10px]">
+                                                ${(u.user_id || 'U')[0].toUpperCase()}
+                                            </div>
+                                            <span>${u.user_id}</span>
+                                        </td>
+                                        <td class="p-3 font-mono text-[11px] text-slate-400">${u.ip || '-'}</td>
+                                        <td class="p-3 font-bold text-indigo-400 font-mono">${u.total_requests || 0}</td>
+                                        <td class="p-3 text-slate-300 font-mono">${u.rag_queries || 0}</td>
+                                        <td class="p-3 text-emerald-400 font-mono font-semibold">${u.llm_calls || 0}</td>
+                                        <td class="p-3 text-right text-slate-400 font-mono text-[11px]">${u.last_active || '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+
+                lucide.createIcons();
+            } catch (err) {
+                console.error("Erreur chargement statistiques:", err);
+            }
         }
 
         function filterVisibility(visibility) {

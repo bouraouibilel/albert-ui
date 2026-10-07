@@ -48,5 +48,35 @@ def log_event(category: str, message: str, level: str = "INFO"):
     if len(LOG_HISTORY) > 200:
         LOG_HISTORY.pop(0)
 
+USER_USAGE_STATS: dict = {}
+
+def record_user_request(user_id: str, endpoint: str = "", is_llm: bool = False, ip: str = ""):
+    """Enregistre la consommation de requêtes par utilisateur ou client IP."""
+    if not user_id:
+        user_id = f"Client ({ip or '127.0.0.1'})"
+    
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if user_id not in USER_USAGE_STATS:
+        USER_USAGE_STATS[user_id] = {
+            "user_id": user_id,
+            "ip": ip or "127.0.0.1",
+            "total_requests": 0,
+            "llm_calls": 0,
+            "rag_queries": 0,
+            "last_active": timestamp
+        }
+    
+    stats = USER_USAGE_STATS[user_id]
+    stats["total_requests"] += 1
+    stats["last_active"] = timestamp
+    if is_llm or "rerank" in endpoint or "vision" in endpoint or "chat" in endpoint:
+        stats["llm_calls"] += 1
+    if "rag" in endpoint:
+        stats["rag_queries"] += 1
+
+def get_user_usage_stats() -> List[dict]:
+    """Retourne la liste des statistiques de consommation d'utilisation triée par volume de requêtes."""
+    return sorted(list(USER_USAGE_STATS.values()), key=lambda x: x["total_requests"], reverse=True)
+
 def get_recent_logs() -> List[dict]:
     return LOG_HISTORY

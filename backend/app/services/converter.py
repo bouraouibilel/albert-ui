@@ -2,8 +2,13 @@ import os
 import re
 import base64
 import asyncio
-import uuid
-import pymupdf as fitz
+try:
+    import fitz
+except ImportError:
+    try:
+        import pymupdf as fitz
+    except ImportError:
+        fitz = None
 import docx
 import openpyxl
 from bs4 import BeautifulSoup

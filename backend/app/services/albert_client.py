@@ -229,9 +229,11 @@ class AlbertAPIClient:
             params["visibility"] = visibility.lower()
 
         log_event("ALBERT-API", f"📡 Requête GET /v1/collections (visibility={visibility or 'default'}, limit={limit})...")
-        async with httpx.AsyncClient(headers=self.headers, timeout=60.0) as client:
+        async with httpx.AsyncClient(headers=self.headers, timeout=15.0) as client:
             try:
                 response = await client.get(f"{self.base_url}/collections", params=params)
+                if response.status_code == 422:
+                    response = await client.get(f"{self.base_url}/collections")
                 if response.status_code == 200:
                     data = response.json()
                     cols = data if isinstance(data, list) else data.get("data", data.get("collections", []))
@@ -317,9 +319,11 @@ class AlbertAPIClient:
                 params["collection_id"] = collection_id
 
         log_event("ALBERT-API", f"📡 Requête GET /v1/documents (collection_id={collection_id})...")
-        async with httpx.AsyncClient(headers=self.headers, timeout=60.0) as client:
+        async with httpx.AsyncClient(headers=self.headers, timeout=15.0) as client:
             try:
                 response = await client.get(f"{self.base_url}/documents", params=params)
+                if response.status_code == 422:
+                    response = await client.get(f"{self.base_url}/documents")
                 if response.status_code == 200:
                     data = response.json()
                     docs = data if isinstance(data, list) else data.get("data", data.get("documents", []))
