@@ -1,0 +1,84 @@
+/* Codes design — Outil d'administration interne
+   Palette provisoire en attente de la charte officielle : seules les valeurs changeront, pas les noms. */
+:root {
+  /* Marque et action */
+  --color-primary: #14285A;
+  --color-primary-hover: #0F1F47;
+  --color-primary-subtle: #E8EDF7;
+  --color-accent: #0E7490;
+  --color-accent-decor: #0891B2; /* icônes uniquement, jamais de texte */
+  --color-highlight: #E9792B;    /* accent rare, jamais de texte */
+
+  /* Neutres */
+  --color-text: #0F172A;
+  --color-text-secondary: #334155;
+  --color-text-muted: #64748B;
+  --color-text-inverse: #FFFFFF;
+  --color-border-strong: #64748B;
+  --color-border: #CBD5E1;
+  --color-bg-subtle: #F1F5F9;
+  --color-bg-page: #F8FAFC;
+  --color-surface: #FFFFFF;
+
+  /* Statuts */
+  --color-success: #15803D;  --color-success-bg: #DCFCE7;
+  --color-warning: #92400E;  --color-warning-bg: #FEF3C7;
+  --color-danger:  #B91C1C;  --color-danger-bg:  #FEE2E2;
+  --color-info:    #0E7490;  --color-info-bg:    #E0F2FE;
+
+  /* Typographie — usage : font: var(--text-body); */
+  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --text-display: 700 1.875rem/2.375rem var(--font-sans);
+  --text-h1: 700 1.5rem/2rem var(--font-sans);
+  --text-h2: 600 1.25rem/1.75rem var(--font-sans);
+  --text-h3: 600 1rem/1.5rem var(--font-sans);
+  --text-body: 400 0.875rem/1.25rem var(--font-sans);
+  --text-body-strong: 600 0.875rem/1.25rem var(--font-sans);
+  --text-small: 400 0.75rem/1rem var(--font-sans);
+
+  /* Espacements (grille de 4 px) */
+  --space-1: 0.25rem;  /* 4 px */
+  --space-2: 0.5rem;   /* 8 px */
+  --space-3: 0.75rem;  /* 12 px */
+  --space-4: 1rem;     /* 16 px */
+  --space-6: 1.5rem;   /* 24 px */
+  --space-8: 2rem;     /* 32 px */
+  --space-12: 3rem;    /* 48 px */
+
+  /* Formes et élévation */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
+  --border-width: 1px;
+  --focus-ring: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-accent);
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.06);
+  --shadow-md: 0 4px 12px rgb(15 23 42 / 0.10);
+  --shadow-lg: 0 12px 32px rgb(15 23 42 / 0.16);
+
+  /* Couches */
+  --z-sticky: 100;
+  --z-dropdown: 200;
+  --z-overlay: 300;
+  --z-modal: 310;
+  --z-toast: 400;
+
+  /* Mise en page */
+  --header-height: 56px;
+  --sidebar-width: 256px;
+  --sidebar-width-collapsed: 64px;
+  --content-max-width: 1440px;
+
+  /* Mouvement */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Breakpoints (les variables CSS ne marchent pas en media query) :
+   md 768px · lg 1024px · xl 1280px · 2xl 1536px */
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0ms !important; animation-duration: 0ms !important; }
+}
