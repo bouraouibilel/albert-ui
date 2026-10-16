@@ -166,14 +166,24 @@ async def create_or_update_watcher(payload: WatcherCreateRequest):
 
 @router.post("/scan-now")
 @router.post("/scan-now/")
-async def scan_folders_now():
+async def scan_folders_now(
+    force: bool = Query(False, description="Forcer la régénération et ré-indexation des fichiers déjà traités"),
+    watcher_id: Optional[str] = Query(None, description="ID d'un dossier d'écoute spécifique"),
+    collection_id: Optional[str] = Query(None, description="ID ou nom d'une collection spécifique")
+):
     """
-    Déclenche manuellement et immédiatement un scan de tous les dossiers d'écoute actifs.
+    Déclenche manuellement et immédiatement un scan des dossiers d'écoute.
+    Si force=True, régénère (.md) et ré-indexe tous les fichiers même s'ils avaient déjà été traités.
     """
-    processed = await watcher_service.scan_all_folders()
+    processed = await watcher_service.scan_all_folders(
+        force_reprocess=force,
+        target_watcher_id=watcher_id,
+        target_collection_id=collection_id
+    )
+    action_label = "Régénération forcée lancée" if force else "Scan terminé"
     return {
         "status": "success",
-        "message": f"Scan terminé. {processed} nouveau(x) document(s) mis en traitement.",
+        "message": f"{action_label}. {processed} document(s) mis en traitement (conversion .md & indexation Albert API).",
         "new_documents_count": processed
     }
 
@@ -233,23 +243,42 @@ async def get_watcher_history_markdown(item_id: str):
 @router.post("/history/{item_id}/retry/")
 async def retry_file(item_id: str):
     """
-    Relance le traitement d'un document qui a échoué.
+    Relance la conversion (.md) et l'indexation Albert API d'un fichier spécifique.
     """
     ok = await watcher_service.retry_history_item(item_id)
     if not ok:
         raise HTTPException(status_code=400, detail="Impossible de relancer le document (fichier source introuvable ou inexistant).")
-    return {"status": "success", "message": "Traitement du document relancé avec succès"}
+    return {"status": "success", "message": "Conversion .md et ré-indexation du document relancées avec succès"}
 
 @router.delete("/history/{item_id}")
 @router.delete("/history/{item_id}/")
 async def delete_history_item(item_id: str):
     """
-    Supprime une ligne d'historique de suivi.
+    Supprime une ligne d'historique de suivi (ce qui permet également au fichier d'être re-scanné).
     """
     ok = watcher_service.delete_history_item(item_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Élément d'historique introuvable")
     return {"status": "success", "message": "Élément d'historique supprimé"}
+
+@router.post("/{watcher_id}/rescan")
+@router.post("/{watcher_id}/rescan/")
+async def rescan_single_watcher(
+    watcher_id: str,
+    force: bool = Query(True, description="Forcer la régénération de tous les fichiers du répertoire")
+):
+    """
+    Force la re-conversion (.md) et la ré-indexation de tous les fichiers d'un répertoire surveillé spécifique.
+    """
+    processed = await watcher_service.scan_all_folders(
+        force_reprocess=force,
+        target_watcher_id=watcher_id
+    )
+    return {
+        "status": "success",
+        "message": f"{processed} fichier(s) du répertoire mis en file de régénération et ré-indexation.",
+        "new_documents_count": processed
+    }
 
 @router.put("/{watcher_id}")
 @router.put("/{watcher_id}/")

@@ -13,6 +13,7 @@ from pathlib import Path
 from app.core.config import settings
 from app.services.converter import DocumentConverter
 from app.services.albert_client import albert_client
+from app.services.watcher_service import watcher_service
 from app.api.collections import get_local_collections, save_local_collections
 
 router = APIRouter(prefix="/documents", tags=["Documents & Conversion"])
@@ -589,9 +590,13 @@ async def download_existing_document_pack(
     return await download_document_pack(req)
 
 @router.delete("/{document_id}")
-async def delete_document(document_id: str):
+async def delete_document(
+    document_id: str,
+    filename: Optional[str] = Query(None, description="Nom du fichier pour nettoyer l'historique du watcher")
+):
     """
-    Supprime un document d'une collection dans Albert API et nettoie les métadonnées locales.
+    Supprime un document d'une collection dans Albert API, nettoie les métadonnées locales
+    et libère l'entrée correspondante dans l'historique du Watcher pour permettre son rescan immédiat.
     """
     await albert_client.delete_document(document_id)
 
@@ -604,6 +609,10 @@ async def delete_document(document_id: str):
         else:
             remaining_docs.append(d)
     save_local_docs(remaining_docs)
+
+    # Libérer l'entrée dans l'historique du Watcher pour que le fichier puisse être re-scanné
+    doc_name_for_watcher = filename or (target_doc.get("name") if target_doc else None) or (target_doc.get("filename") if target_doc else None)
+    watcher_service.remove_history_by_document(document_id=document_id, filename=doc_name_for_watcher)
 
     if target_doc and target_doc.get("collection_id"):
         target_col_id = str(target_doc.get("collection_id"))
@@ -627,6 +636,175 @@ async def delete_document(document_id: str):
 
     return {
         "status": "success",
-        "message": f"Document {document_id} supprimé avec succès",
+        "message": f"Document {document_id} supprimé avec succès (prêt pour un nouveau scan si présent dans un dossier d'écoute)",
         "deleted_id": document_id
     }
+
+
+@router.post("/{document_id}/reprocess")
+async def reprocess_single_document(
+    document_id: str,
+    collection_id: Optional[str] = Query(None, description="ID de la collection cible"),
+    filename: Optional[str] = Query(None, description="Nom du fichier")
+):
+    """
+    Relance la conversion (.md) et la ré-indexation Albert API pour un fichier donné :
+    1. S'il provient d'un dossier d'écoute (Watcher), relance le worker sur le fichier physique source.
+    2. S'il provient d'un import manuel (présent dans storage/uploads/), re-convertit le fichier brut (.docx/.pdf) et le ré-indexe.
+    3. Sinon, ré-indexe le fichier Markdown (.md) existant avec les nouveaux paramètres de chunking (2048 / overlap 256).
+    """
+    import datetime
+
+    docs = get_local_docs()
+    local_meta = next(
+        (d for d in docs if str(d.get("id")) == str(document_id) or (filename and (d.get("name") == filename or d.get("filename") == filename))),
+        None
+    )
+    eff_col_id = collection_id or (local_meta.get("collection_id") if local_meta else None) or ""
+    eff_name = filename or (local_meta.get("name") if local_meta else None) or document_id
+    eff_stem = Path(eff_name).stem
+    if eff_stem.startswith("doc_"):
+        eff_stem = eff_stem[4:]
+
+    # 1. Vérifier dans l'historique du Watcher
+    history = watcher_service.get_history(limit=500)
+    for h in history:
+        h_doc_id = str(h.get("albert_document_id") or "")
+        h_fname = h.get("filename") or ""
+        if h_doc_id == str(document_id) or h.get("id") == str(document_id) or (eff_name and h_fname == eff_name) or (eff_stem and Path(h_fname).stem == eff_stem):
+            if h.get("file_path") and os.path.exists(h.get("file_path")):
+                ok = await watcher_service.retry_history_item(h["id"])
+                if ok:
+                    return {
+                        "status": "success",
+                        "mode": "watcher_file",
+                        "message": f"Régénération (.md) et ré-indexation de '{h_fname}' lancées depuis le dossier d'écoute."
+                    }
+
+    # 2. Chercher le fichier brut dans les dossiers d'écoute configurés ou dans storage/uploads/
+    raw_source_path = None
+    raw_source_name = eff_name
+    for w in watcher_service.get_watchers():
+        w_folder = w.get("folder_path")
+        if w_folder and os.path.exists(w_folder):
+            for root, _, files in os.walk(w_folder):
+                for f_item in files:
+                    if f_item == eff_name or Path(f_item).stem == eff_stem:
+                        raw_source_path = os.path.join(root, f_item)
+                        raw_source_name = f_item
+                        if not eff_col_id:
+                            eff_col_id = str(w.get("collection_id"))
+                        break
+                if raw_source_path:
+                    break
+
+    if not raw_source_path and os.path.exists(settings.UPLOAD_DIR):
+        for f_item in os.listdir(settings.UPLOAD_DIR):
+            if f_item == eff_name or f_item.endswith(f"_{eff_name}") or (eff_stem and len(eff_stem) > 3 and Path(f_item).stem.endswith(eff_stem)):
+                raw_source_path = os.path.join(settings.UPLOAD_DIR, f_item)
+                # Retirer le préfixe uuid_ si présent
+                parts = f_item.split("_", 1)
+                raw_source_name = parts[1] if len(parts) == 2 and len(parts[0]) == 8 else f_item
+                break
+
+    if raw_source_path and os.path.exists(raw_source_path):
+        conv_result = await DocumentConverter.convert_to_markdown(
+            file_path=raw_source_path,
+            filename=raw_source_name,
+            collection_name=eff_col_id
+        )
+        md_content = conv_result["markdown_content"]
+    else:
+        # 3. Repli sur le fichier Markdown déjà converti
+        md_res = await get_document_markdown(document_id=document_id, filename=eff_name)
+        md_content = md_res["markdown_content"]
+        raw_source_name = md_res.get("original_filename") or eff_name
+
+    # Supprimer l'ancien document dans Albert API avant de ré-indexer
+    try:
+        await albert_client.delete_document(document_id)
+    except Exception:
+        pass
+
+    temp_id = str(uuid.uuid4())[:8]
+    clean_stem = Path(raw_source_name).stem
+    md_filename = f"{clean_stem}.md"
+    converted_path = os.path.join(settings.CONVERTED_DIR, f"{temp_id}_{md_filename}")
+    with open(converted_path, "w", encoding="utf-8") as f:
+        f.write(md_content)
+
+    upload_res = await albert_client.upload_document(
+        collection_id=eff_col_id,
+        file_path=converted_path,
+        filename=md_filename,
+        chunk_size=2048,
+        chunk_overlap=256,
+        preset_separators="markdown"
+    )
+    new_doc_id = str(upload_res.get("id") or temp_id)
+    doc_meta_extracted = DocumentConverter.extract_doc_metadata(raw_source_name)
+
+    # Mettre à jour documents_meta.json
+    docs = [d for d in get_local_docs() if str(d.get("id")) != str(document_id)]
+    new_meta = {
+        "id": new_doc_id,
+        "filename": f"{temp_id}_{md_filename}",
+        "name": raw_source_name,
+        "doc_title": doc_meta_extracted["doc_title"],
+        "doc_version": doc_meta_extracted["doc_version"],
+        "collection_id": eff_col_id,
+        "original_format": Path(raw_source_name).suffix.lower() or ".md",
+        "size_chars": len(md_content),
+        "chunk_size": 2048,
+        "chunk_overlap": 256,
+        "status": "indexed_in_albert",
+        "ingested_at": datetime.datetime.now().isoformat()
+    }
+    docs.append(new_meta)
+    save_local_docs(docs)
+
+    return {
+        "status": "success",
+        "mode": "direct_reprocess",
+        "message": f"Document '{raw_source_name}' re-converti et ré-indexé avec succès (Nouvel ID: {new_doc_id}).",
+        "document_metadata": new_meta
+    }
+
+
+@router.post("/collection/{collection_id}/reprocess")
+async def reprocess_collection_documents(collection_id: str):
+    """
+    Force la re-conversion (.md) et la ré-indexation de TOUS les documents d'une collection :
+    1. Déclenche un rescan forcé sur tous les répertoires d'écoute (Watchers) associés à cette collection.
+    2. Re-traite également les documents de la collection importés manuellement hors Watcher.
+    """
+    watcher_queued = await watcher_service.scan_all_folders(
+        force_reprocess=True,
+        target_collection_id=collection_id
+    )
+
+    # Identifier les documents manuels de la collection qui ne sont pas gérés par un watcher
+    docs = get_local_docs()
+    col_docs = [d for d in docs if str(d.get("collection_id")) == str(collection_id) and d.get("source") != "auto_watcher"]
+    manual_reprocessed = 0
+    for d in col_docs:
+        try:
+            await reprocess_single_document(
+                document_id=str(d.get("id")),
+                collection_id=collection_id,
+                filename=d.get("name") or d.get("filename")
+            )
+            manual_reprocessed += 1
+        except Exception:
+            pass
+
+    total_count = watcher_queued + manual_reprocessed
+    return {
+        "status": "success",
+        "collection_id": collection_id,
+        "watcher_queued": watcher_queued,
+        "manual_reprocessed": manual_reprocessed,
+        "total_count": total_count,
+        "message": f"Régénération de la collection lancée : {watcher_queued} fichier(s) de dossier d'écoute en file d'attente et {manual_reprocessed} document(s) manuel(s) ré-indexé(s)."
+    }
+

@@ -180,6 +180,39 @@ class WatcherService:
             return True
         return False
 
+    def clear_history(self):
+        """Purge l'intégralité de l'historique d'ingestion automatique."""
+        self.save_history([])
+        log_event("WATCHER", "🧹 Historique d'ingestion automatique purgé (tous les fichiers pourront être re-scannés).")
+
+    def remove_history_by_document(self, document_id: str, filename: Optional[str] = None) -> int:
+        """
+        Supprime de l'historique du watcher les entrées liées à un document supprimé d'une collection,
+        afin de permettre sa régénération immédiate lors du prochain scan.
+        """
+        history = self.get_history(limit=500)
+        doc_id_str = str(document_id or "")
+        fname_clean = (filename or "").strip().lower()
+        fname_stem = Path(fname_clean).stem if fname_clean else ""
+
+        remaining = []
+        removed_count = 0
+        for h in history:
+            h_doc_id = str(h.get("albert_document_id") or "")
+            h_fname = (h.get("filename") or "").strip().lower()
+            h_md = (h.get("markdown_file") or "").strip().lower()
+            match_id = bool(doc_id_str and (h_doc_id == doc_id_str or h.get("id") == doc_id_str))
+            match_name = bool(fname_clean and (h_fname == fname_clean or h_md == fname_clean or (fname_stem and Path(h_fname).stem == fname_stem)))
+            if match_id or match_name:
+                removed_count += 1
+            else:
+                remaining.append(h)
+
+        if removed_count > 0:
+            self.save_history(remaining)
+            log_event("WATCHER", f"🔄 {removed_count} entrée(s) d'historique libérée(s) suite à la suppression de '{filename or document_id}'.")
+        return removed_count
+
     async def start_background_listener(self):
         """Démarre la boucle de surveillance périodique en arrière-plan."""
         if self._is_running:
@@ -209,25 +242,44 @@ class WatcherService:
             
             await asyncio.sleep(2.5)
 
-    async def scan_all_folders(self) -> int:
+    async def scan_all_folders(
+        self,
+        force_reprocess: bool = False,
+        target_watcher_id: Optional[str] = None,
+        target_collection_id: Optional[str] = None
+    ) -> int:
         """
-        Parcourt tous les répertoires actifs, détecte TOUS les nouveaux documents instantanément,
-        les inscrit immédiatement dans l'historique en statut 'processing' et lance leur traitement
-        en arrière-plan via une file asynchrone non-bloquante.
+        Parcourt les répertoires surveillés, détecte les documents et lance leur conversion + indexation.
+        - Si force_reprocess=True : ignore le statut 'completed' dans l'historique et régénère / ré-indexe
+          tous les fichiers du répertoire (ou de la collection ciblée).
         """
         async with self._scan_lock:
             watchers = self.get_watchers()
-            active_watchers = [w for w in watchers if w.get("enabled", True)]
+            if target_watcher_id:
+                active_watchers = [w for w in watchers if w.get("id") == target_watcher_id]
+            elif target_collection_id:
+                active_watchers = [
+                    w for w in watchers
+                    if str(w.get("collection_id")) == str(target_collection_id)
+                    or str(w.get("collection_name")) == str(target_collection_id)
+                ]
+            else:
+                active_watchers = [w for w in watchers if w.get("enabled", True)]
+
             if not active_watchers:
                 return 0
 
             history = self.get_history(limit=500)
             
-            # Indexer les fichiers déjà connus
+            # Indexer les fichiers déjà connus : key -> item d'historique
             known_files = {}
+            known_by_normpath = {}
             for h in history:
-                key = (os.path.normcase(os.path.normpath(h.get("file_path", ""))), h.get("file_mtime"), h.get("file_size"))
+                npath = os.path.normcase(os.path.normpath(h.get("file_path", "")))
+                key = (npath, h.get("file_mtime"), h.get("file_size"))
                 known_files[key] = h.get("status")
+                if npath not in known_by_normpath:
+                    known_by_normpath[npath] = h
 
             new_detected_items = []
             now_str = datetime.datetime.now().isoformat()
@@ -279,51 +331,75 @@ class WatcherService:
 
                     file_key = (norm_path, file_mtime, file_size)
 
-                    # Si déjà traité avec succès ou déjà activement en cours de traitement
+                    # Si déjà activement en cours de traitement
                     if file_key in self._active_file_keys:
                         continue
-                    if file_key in known_files and known_files[file_key] in ["completed", "processing"]:
-                        continue
 
-                    # Fichier nouveau détecté !
-                    item_id = f"item_{str(uuid.uuid4())[:8]}"
-                    self._active_file_keys.add(file_key)
-                    self._active_task_ids.add(item_id)
+                    # En mode normal (non forcé), ignorer les fichiers déjà traités avec succès
+                    if not force_reprocess:
+                        if file_key in known_files and known_files[file_key] in ["completed", "processing"]:
+                            continue
 
-                    history_item = {
-                        "id": item_id,
-                        "watcher_id": watcher_id,
-                        "collection_id": str(collection_id),
-                        "collection_name": collection_name,
-                        "file_path": resolved_path,
-                        "filename": f.name,
-                        "file_size": file_size,
-                        "file_mtime": file_mtime,
-                        "status": "processing",
-                        "progress_step": "En file d'attente...",
-                        "error_message": None,
-                        "albert_document_id": None,
-                        "markdown_file": None,
-                        "detected_at": now_str,
-                        "started_at": now_str,
-                        "completed_at": None,
-                        "char_count": 0,
-                        "pages_count": 1,
-                        "tables_count": 0
-                    }
-                    new_detected_items.append((history_item, file_key))
+                    existing_item = known_by_normpath.get(norm_path)
+                    if force_reprocess and existing_item:
+                        item_id = existing_item["id"]
+                        old_doc_id = existing_item.get("albert_document_id")
+                        existing_item.update({
+                            "watcher_id": watcher_id,
+                            "collection_id": str(collection_id),
+                            "collection_name": collection_name,
+                            "file_path": resolved_path,
+                            "filename": f.name,
+                            "file_size": file_size,
+                            "file_mtime": file_mtime,
+                            "status": "processing",
+                            "progress_step": "Régénération & Ré-indexation...",
+                            "error_message": None,
+                            "old_albert_document_id": old_doc_id,
+                            "started_at": now_str,
+                            "completed_at": None
+                        })
+                        self._active_file_keys.add(file_key)
+                        self._active_task_ids.add(item_id)
+                        new_detected_items.append((existing_item, file_key, False))
+                    else:
+                        item_id = f"item_{str(uuid.uuid4())[:8]}"
+                        self._active_file_keys.add(file_key)
+                        self._active_task_ids.add(item_id)
 
-            # Si de nouveaux fichiers sont détectés, on les enregistre tous immédiatement en base
+                        history_item = {
+                            "id": item_id,
+                            "watcher_id": watcher_id,
+                            "collection_id": str(collection_id),
+                            "collection_name": collection_name,
+                            "file_path": resolved_path,
+                            "filename": f.name,
+                            "file_size": file_size,
+                            "file_mtime": file_mtime,
+                            "status": "processing",
+                            "progress_step": "En file d'attente...",
+                            "error_message": None,
+                            "albert_document_id": None,
+                            "markdown_file": None,
+                            "detected_at": now_str,
+                            "started_at": now_str,
+                            "completed_at": None,
+                            "char_count": 0,
+                            "pages_count": 1,
+                            "tables_count": 0
+                        }
+                        new_detected_items.append((history_item, file_key, True))
+
             if new_detected_items:
-                for item, _ in new_detected_items:
-                    history.insert(0, item)
-                    log_event("WATCHER", f"⚡ [DÉTECTÉ] Fichier '{item['filename']}' détecté pour la collection '{item['collection_name']}' -> Mis en traitement.")
+                for item, _, is_new in new_detected_items:
+                    if is_new:
+                        history.insert(0, item)
+                    log_event("WATCHER", f"⚡ [{'REGÉNÉRATION' if force_reprocess else 'DÉTECTÉ'}] Fichier '{item['filename']}' -> Mis en traitement pour '{item['collection_name']}'.")
                 
                 self.save_history(history)
                 self.save_watchers(watchers)
 
-                # Lancer immédiatement chaque fichier en tâche d'arrière-plan avec le sémaphore
-                for item, f_key in new_detected_items:
+                for item, f_key, _ in new_detected_items:
                     asyncio.create_task(self._process_file_worker(item, f_key))
 
             return len(new_detected_items)
@@ -335,6 +411,8 @@ class WatcherService:
         file_path = history_item["file_path"]
         collection_id = history_item["collection_id"]
         collection_name = history_item["collection_name"]
+        old_doc_id = history_item.get("old_albert_document_id") or history_item.get("albert_document_id")
+        t_start = time.time()
 
         try:
             async with self._semaphore:
@@ -348,6 +426,13 @@ class WatcherService:
                     filename=filename,
                     collection_name=collection_name
                 )
+
+                # Si c'est une régénération d'un document déjà indexé, supprimer l'ancien document dans Albert API pour éviter les doublons
+                if old_doc_id and str(old_doc_id) != "OK":
+                    try:
+                        await albert_client.delete_document(str(old_doc_id))
+                    except Exception:
+                        pass
 
                 history_item["progress_step"] = "Indexation Albert API..."
                 self._update_history_item(item_id, history_item)
@@ -371,7 +456,7 @@ class WatcherService:
 
                 albert_doc_id = str(ingest_result.get("id") or ingest_result.get("document_id") or "OK")
 
-                # Étape 3 : Mise à jour des métadonnées locales documents_meta.json
+                # Étape 3 : Mise à jour des métadonnées locales documents_meta.json (en remplaçant l'ancienne entrée si existante)
                 try:
                     docs_meta_file = os.path.join(settings.CONVERTED_DIR, "documents_meta.json")
                     docs = []
@@ -379,6 +464,15 @@ class WatcherService:
                         with open(docs_meta_file, "r", encoding="utf-8") as f:
                             docs = json.load(f)
                     
+                    # Nettoyer l'ancienne entrée du même fichier dans cette collection
+                    docs = [
+                        d for d in docs
+                        if not (
+                            (old_doc_id and str(d.get("id")) == str(old_doc_id))
+                            or (str(d.get("collection_id")) == str(collection_id) and d.get("name") == filename)
+                        )
+                    ]
+
                     new_doc_entry = {
                         "id": albert_doc_id,
                         "filename": md_filename,
@@ -402,12 +496,15 @@ class WatcherService:
 
                 # Étape 4 : Finalisation statut 'completed'
                 completed_time = datetime.datetime.now().isoformat()
+                elapsed_sec = round(time.time() - t_start, 1)
+                history_item.pop("old_albert_document_id", None)
                 history_item.update({
                     "status": "completed",
                     "progress_step": "Terminé",
                     "albert_document_id": albert_doc_id,
                     "markdown_file": md_filename,
                     "completed_at": completed_time,
+                    "processing_time_sec": elapsed_sec,
                     "char_count": conv_result["char_count"],
                     "pages_count": conv_result.get("pages_count", 1),
                     "tables_count": conv_result.get("tables_count", 0)
@@ -422,7 +519,7 @@ class WatcherService:
                         break
                 self.save_watchers(watchers)
 
-                log_event("WATCHER", f"✅ [TRAITÉ] Document '{filename}' converti et indexé avec succès dans Albert API (Doc #{albert_doc_id})")
+                log_event("WATCHER", f"✅ [TRAITÉ] Document '{filename}' converti et indexé avec succès dans Albert API (Doc #{albert_doc_id} en {elapsed_sec}s)")
 
         except Exception as e:
             err_msg = str(e)
@@ -443,7 +540,7 @@ class WatcherService:
                 self._active_task_ids.discard(item_id)
 
     async def retry_history_item(self, item_id: str) -> bool:
-        """Relance manuellement le traitement d'un fichier en erreur."""
+        """Relance manuellement la conversion (.md) et l'indexation d'un fichier (en erreur ou déjà traité)."""
         history = self.get_history(limit=500)
         target = None
         for h in history:
@@ -460,8 +557,9 @@ class WatcherService:
             self._update_history_item(item_id, target)
             return False
 
+        target["old_albert_document_id"] = target.get("albert_document_id")
         target["status"] = "processing"
-        target["progress_step"] = "Relance en cours..."
+        target["progress_step"] = "Régénération & Ré-indexation..."
         target["error_message"] = None
         target["started_at"] = datetime.datetime.now().isoformat()
         self._update_history_item(item_id, target)

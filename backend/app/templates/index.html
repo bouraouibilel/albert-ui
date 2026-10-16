@@ -887,11 +887,14 @@
                         <p class="text-slate-400 text-sm mt-1">Surveillez des répertoires physiques (un par collection) : chaque nouveau document est automatiquement converti en Markdown (.md) et indexé dans Albert API.</p>
                     </div>
 
-                    <div class="flex items-center gap-3">
-                        <button onclick="scanWatchersNow()" id="btn-scan-now" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-medium text-sm rounded-xl border border-slate-700 transition flex items-center gap-2 shadow-sm" title="Déclencher une vérification immédiate de tous les dossiers">
-                            <i data-lucide="scan" class="w-4 h-4 text-indigo-400"></i> Scanner Maintenant
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <button onclick="scanWatchersNow(false)" id="btn-scan-now" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-medium text-xs sm:text-sm rounded-xl border border-slate-700 transition flex items-center gap-2 shadow-sm" title="Détecter uniquement les nouveaux fichiers">
+                            <i data-lucide="scan" class="w-4 h-4 text-indigo-400"></i> Scanner Nouveaux
                         </button>
-                        <button onclick="openCreateWatcherModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl shadow-lg shadow-indigo-600/20 transition flex items-center justify-center gap-2">
+                        <button onclick="scanWatchersNow(true)" id="btn-force-rescan-all" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs sm:text-sm rounded-xl transition flex items-center gap-2 shadow-sm" title="Forcer la re-conversion .md et la ré-indexation de tous les fichiers des dossiers surveillés">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i> Tout Regénérer & Ré-indexer
+                        </button>
+                        <button onclick="openCreateWatcherModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-600/20 transition flex items-center justify-center gap-2">
                             <i data-lucide="folder-plus" class="w-4 h-4"></i> Nouveau Dossier d'Écoute
                         </button>
                     </div>
@@ -1230,7 +1233,10 @@
                     </h3>
                     <p class="text-xs text-slate-400 mt-0.5" id="modal-docs-subtitle">Liste des fichiers indexés dans Albert API.</p>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="reprocessCollectionFromModal()" id="btn-reprocess-col-modal" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition flex items-center gap-1.5 shadow-sm" title="Re-convertir (.md) et ré-indexer tous les documents de cette collection">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Tout Regénérer (Collection)
+                    </button>
                     <button onclick="openComparatorFromDocsModal()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition flex items-center gap-1.5 shadow-sm" title="Comparer deux versions d'un document de cette collection">
                         <i data-lucide="git-compare" class="w-3.5 h-3.5"></i> Comparer 2 versions
                     </button>
@@ -1734,15 +1740,20 @@
                         </div>
                     </div>
 
-                    <div class="space-y-3 pt-3 border-t border-slate-800/60">
+                    <div class="space-y-2 pt-3 border-t border-slate-800/60">
                         <div class="flex items-center justify-between text-xs text-slate-400">
                             <span class="font-medium text-slate-300">${c.documents || c.document_count || 0} document(s)</span>
                             <span class="px-2 py-0.5 rounded ${c.visibility === 'public' ? 'bg-slate-950 text-slate-400' : 'bg-blue-950 text-blue-300'} font-mono text-[10px]">${c.visibility || 'privée'}</span>
                         </div>
                         
-                        <button onclick="openDocsModal('${c.id || c.name}', '${c.name}')" class="w-full py-2 bg-slate-950 hover:bg-slate-800 text-blue-400 hover:text-blue-300 text-xs font-semibold rounded-xl border border-slate-800 transition flex items-center justify-center gap-2">
-                            <i data-lucide="files" class="w-3.5 h-3.5"></i> Voir les documents indexés
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button onclick="openDocsModal('${c.id || c.name}', '${c.name.replace(/'/g, "\\'")}')" class="flex-1 py-2 bg-slate-950 hover:bg-slate-800 text-blue-400 hover:text-blue-300 text-xs font-semibold rounded-xl border border-slate-800 transition flex items-center justify-center gap-1.5">
+                                <i data-lucide="files" class="w-3.5 h-3.5"></i> Documents
+                            </button>
+                            <button onclick="reprocessEntireCollection('${c.id || c.name}', '${c.name.replace(/'/g, "\\'")}')" class="px-3 py-2 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 text-xs font-semibold rounded-xl transition flex items-center justify-center gap-1.5" title="Re-convertir (.md) et ré-indexer tous les fichiers de cette collection">
+                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Regénérer
+                            </button>
+                        </div>
                     </div>
                 </div>
             `).join('');
@@ -1750,9 +1761,11 @@
         }
 
         let currentDocsModalCollectionId = "";
+        let currentDocsModalCollectionName = "";
 
         async function openDocsModal(colId, colName) {
             currentDocsModalCollectionId = colId;
+            currentDocsModalCollectionName = colName || colId;
             document.getElementById('modal-docs').classList.remove('hidden');
             document.getElementById('modal-docs-title').innerHTML = `<i data-lucide="folder" class="w-5 h-5 text-blue-400"></i> Documents de "${colName}"`;
             document.getElementById('modal-docs-subtitle').innerText = `ID Collection Albert API: ${colId}`;
@@ -1767,7 +1780,15 @@
                 const docs = await res.json();
 
                 if (!docs || docs.length === 0) {
-                    container.innerHTML = '<p class="text-xs text-slate-400 py-12 text-center">Aucun document indexé dans cette collection.</p>';
+                    container.innerHTML = `
+                        <div class="py-12 text-center space-y-3">
+                            <p class="text-xs text-slate-400">Aucun document indexé dans cette collection.</p>
+                            <button onclick="reprocessCollectionFromModal()" class="px-4 py-2 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-semibold transition inline-flex items-center gap-2">
+                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Scanner & Regénérer depuis le dossier d'écoute
+                            </button>
+                        </div>
+                    `;
+                    lucide.createIcons();
                     return;
                 }
 
@@ -1790,14 +1811,17 @@
                                     <td class="p-3"><span class="px-2 py-0.5 bg-emerald-950 border border-emerald-800 text-emerald-300 rounded-full font-mono text-[10px]">${d.chunks || 0} chunks</span></td>
                                     <td class="p-3 text-slate-400">${( (d.size || d.size_chars || 0) / 1024 ).toFixed(1)} KB</td>
                                     <td class="p-3">
-                                        <div class="flex items-center justify-end gap-2.5">
-                                            <button onclick="downloadCollectionDocPack('${d.id}', '${(d.name || d.filename).replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-medium transition flex items-center gap-1.5" title="Télécharger le pack ZIP (.md + images)">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <button id="btn-reprocess-doc-${d.id}" onclick="reprocessCollectionDoc('${d.id}', '${(d.name || d.filename).replace(/'/g, "\\'")}', '${colId}', '${colName.replace(/'/g, "\\'")}')" class="px-2.5 py-1.5 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium transition flex items-center gap-1.5" title="Re-convertir (.md) et ré-indexer ce fichier">
+                                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Regénérer
+                                            </button>
+                                            <button onclick="downloadCollectionDocPack('${d.id}', '${(d.name || d.filename).replace(/'/g, "\\'")}')" class="px-2.5 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-medium transition flex items-center gap-1.5" title="Télécharger le pack ZIP (.md + images)">
                                                 <i data-lucide="archive" class="w-3.5 h-3.5"></i> ZIP
                                             </button>
-                                            <button onclick="openMarkdownViewerModal('${d.id}', '${(d.name || d.filename).replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-medium transition flex items-center gap-1.5" title="Consulter le fichier .md">
+                                            <button onclick="openMarkdownViewerModal('${d.id}', '${(d.name || d.filename).replace(/'/g, "\\'")}')" class="px-2.5 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-medium transition flex items-center gap-1.5" title="Consulter le fichier .md">
                                                 <i data-lucide="eye" class="w-3.5 h-3.5"></i> Voir .MD
                                             </button>
-                                            <button onclick="openChunksModal('${d.id}', '${(d.name || d.filename).replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs font-medium transition flex items-center gap-1.5" title="Inspecter les chunks vectorisés">
+                                            <button onclick="openChunksModal('${d.id}', '${(d.name || d.filename).replace(/'/g, "\\'")}')" class="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs font-medium transition flex items-center gap-1.5" title="Inspecter les chunks vectorisés">
                                                 <i data-lucide="layers" class="w-3.5 h-3.5"></i> Chunks
                                             </button>
                                             <button onclick="deleteDocument('${d.id}', '${(d.name || d.filename).replace(/'/g, "\\'")}', '${colId}', '${colName.replace(/'/g, "\\'")}')" class="px-2.5 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-800/60 rounded-lg text-xs font-medium transition flex items-center justify-center" title="Supprimer le document">
@@ -2067,10 +2091,10 @@
 
         async function deleteDocument(docId, docName, colId, colName) {
             const displayName = docName || docId;
-            if (!confirm(`Supprimer le document "${displayName}" de la collection ?`)) return;
+            if (!confirm(`Supprimer le document "${displayName}" de la collection ?\n(Son historique de scan sera également réinitialisé pour permettre sa regénération).`)) return;
 
             try {
-                const res = await fetch(`${API_BASE}/documents/${docId}`, {
+                const res = await fetch(`${API_BASE}/documents/${docId}?filename=${encodeURIComponent(docName || '')}`, {
                     method: 'DELETE'
                 });
 
@@ -2083,6 +2107,92 @@
             } catch (err) {
                 console.error("Erreur lors de la suppression du document:", err);
                 alert("Erreur lors de la suppression du document.");
+            }
+        }
+
+        async function reprocessCollectionDoc(docId, docName, colId, colName) {
+            const displayName = docName || docId;
+            if (!confirm(`Re-convertir (.md) et ré-indexer le fichier "${displayName}" dans la collection "${colName}" ?`)) return;
+
+            const btn = document.getElementById(`btn-reprocess-doc-${docId}`);
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> En cours...`;
+                lucide.createIcons();
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/documents/${docId}/reprocess`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        collection_id: colId,
+                        collection_name: colName,
+                        filename: docName || ''
+                    })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error(data.detail || `HTTP ${res.status}`);
+                }
+
+                alert(`✅ ${data.message || 'Document regénéré et ré-indexé avec succès.'}`);
+                openDocsModal(colId, colName);
+                loadCollections();
+            } catch (err) {
+                console.error("Erreur lors de la regénération du document:", err);
+                alert(`Erreur lors de la regénération : ${err.message}`);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Regénérer`;
+                    lucide.createIcons();
+                }
+            }
+        }
+
+        async function reprocessCollectionFromModal() {
+            if (!currentDocsModalCollectionId) return;
+            await reprocessEntireCollection(currentDocsModalCollectionId, currentDocsModalCollectionName || currentDocsModalCollectionId, true);
+        }
+
+        async function reprocessEntireCollection(colId, colName, fromModal = false) {
+            const displayCol = colName || colId;
+            if (!confirm(`Voulez-vous relancer la conversion (.md) et l'ingestion pour TOUS les fichiers de la collection "${displayCol}" (dossiers d'écoute associés + documents indexés) ?`)) return;
+
+            const modalBtn = document.getElementById('btn-reprocess-collection');
+            if (modalBtn) {
+                modalBtn.disabled = true;
+                modalBtn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Regénération en cours...`;
+                lucide.createIcons();
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/documents/collection/${encodeURIComponent(colId)}/reprocess`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        collection_name: displayCol
+                    })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error(data.detail || `HTTP ${res.status}`);
+                }
+
+                alert(`✅ ${data.message || 'Regénération de la collection lancée.'}`);
+                if (fromModal) {
+                    setTimeout(() => openDocsModal(colId, displayCol), 1500);
+                }
+                setTimeout(() => loadCollections(), 1500);
+            } catch (err) {
+                console.error("Erreur lors de la regénération de la collection:", err);
+                alert(`Erreur lors de la regénération de la collection : ${err.message}`);
+            } finally {
+                if (modalBtn) {
+                    modalBtn.disabled = false;
+                    modalBtn.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Tout Regénérer (Collection)`;
+                    lucide.createIcons();
+                }
             }
         }
 
@@ -2427,34 +2537,43 @@
                 return;
             }
 
-            grid.innerHTML = watchers.map(w => `
-                <div class="bg-slate-900 border ${w.is_active ? 'border-indigo-500/30 shadow-lg shadow-indigo-950/20' : 'border-slate-800 opacity-75'} p-5 rounded-2xl space-y-3 flex flex-col justify-between">
+            grid.innerHTML = watchers.map(w => {
+                const isActive = w.enabled !== false && w.is_active !== false;
+                return `
+                <div class="bg-slate-900 border ${isActive ? 'border-indigo-500/30 shadow-lg shadow-indigo-950/20' : 'border-slate-800 opacity-75'} p-5 rounded-2xl space-y-3 flex flex-col justify-between">
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${w.is_active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-400'}">
-                                <span class="w-1.5 h-1.5 rounded-full ${w.is_active ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}"></span>
-                                ${w.is_active ? 'ÉCOUTE ACTIVE' : 'EN PAUSE'}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-400'}">
+                                <span class="w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}"></span>
+                                ${isActive ? 'ÉCOUTE ACTIVE' : 'EN PAUSE'}
                             </span>
                             <span class="text-[10px] font-mono text-indigo-400 bg-indigo-950/50 px-2 py-0.5 rounded border border-indigo-800/40">${w.collection_name}</span>
                         </div>
 
                         <div>
                             <p class="text-xs font-bold text-white truncate font-mono" title="${w.folder_path}">${w.folder_path}</p>
-                            <p class="text-[11px] text-slate-400 mt-0.5">Fichiers surveillés: <span class="text-slate-200 font-semibold">${w.supported_formats ? w.supported_formats.join(', ') : '.pdf, .docx'}</span></p>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Fichiers surveillés: <span class="text-slate-200 font-semibold">${w.supported_formats ? w.supported_formats.join(', ') : '.pdf, .docx, .doc'}</span></p>
                         </div>
                     </div>
 
-                    <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
-                        <button onclick="toggleWatcherStatus('${w.id}', ${!w.is_active})" class="px-3 py-1.5 ${w.is_active ? 'bg-slate-800 hover:bg-amber-950/40 text-slate-200 hover:text-amber-300 border border-slate-700' : 'bg-emerald-600 hover:bg-emerald-500 text-white'} rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
-                            <i data-lucide="${w.is_active ? 'pause' : 'play'}" class="w-3.5 h-3.5"></i>
-                            <span>${w.is_active ? 'Mettre en pause' : 'Démarrer'}</span>
-                        </button>
+                    <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-2 flex-wrap">
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="toggleWatcherStatus('${w.id}', ${!isActive})" class="px-2.5 py-1.5 ${isActive ? 'bg-slate-800 hover:bg-amber-950/40 text-slate-200 hover:text-amber-300 border border-slate-700' : 'bg-emerald-600 hover:bg-emerald-500 text-white'} rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+                                <i data-lucide="${isActive ? 'pause' : 'play'}" class="w-3.5 h-3.5"></i>
+                                <span>${isActive ? 'Pause' : 'Démarrer'}</span>
+                            </button>
+                            <button id="btn-rescan-watcher-${w.id}" onclick="rescanSingleWatcher('${w.id}', '${(w.collection_name || '').replace(/'/g, "\\'")}')" class="px-2.5 py-1.5 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-semibold transition flex items-center gap-1.5" title="Re-convertir (.md) et ré-indexer tous les fichiers de ce répertoire">
+                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                                <span>Regénérer dossier</span>
+                            </button>
+                        </div>
                         <button onclick="deleteWatcher('${w.id}')" class="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800/60 transition" title="Supprimer ce watcher">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
             lucide.createIcons();
         }
 
@@ -2479,7 +2598,7 @@
                                 <th class="p-3">Collection</th>
                                 <th class="p-3">Statut Ingestion</th>
                                 <th class="p-3">Temps</th>
-                                <th class="p-3 text-right">Action</th>
+                                <th class="p-3 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-800/60">
@@ -2492,6 +2611,7 @@
                                 }
 
                                 const dt = h.started_at ? new Date(h.started_at).toLocaleTimeString() : '';
+                                const safeFilename = (h.filename || '').replace(/'/g, "\\'");
                                 return `
                                     <tr class="hover:bg-slate-950/40">
                                         <td class="p-3 text-slate-400 font-mono text-[11px]">${dt}</td>
@@ -2505,11 +2625,19 @@
                                         <td class="p-3">${statusBadge}</td>
                                         <td class="p-3 text-slate-400 font-mono text-[11px]">${h.processing_time_sec ? h.processing_time_sec + 's' : '-'}</td>
                                         <td class="p-3 text-right">
-                                            ${h.markdown_file ? `
-                                                <button onclick="openMarkdownViewerModal('${h.albert_document_id || h.id}', '${h.filename.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 rounded-lg text-[11px] font-medium transition">
-                                                    Consulter .MD
+                                            <div class="flex items-center justify-end gap-1.5">
+                                                <button onclick="retryWatcherHistoryItem('${h.id}', '${safeFilename}')" class="px-2.5 py-1 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 rounded-lg text-[11px] font-medium transition flex items-center gap-1" title="Re-convertir (.md) et ré-indexer ce fichier">
+                                                    <i data-lucide="refresh-cw" class="w-3 h-3"></i> Regénérer
                                                 </button>
-                                            ` : '<span class="text-slate-600 text-[11px]">-</span>'}
+                                                ${h.markdown_file || h.albert_document_id ? `
+                                                    <button onclick="openMarkdownViewerModal('${h.albert_document_id || h.id}', '${safeFilename}')" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 rounded-lg text-[11px] font-medium transition flex items-center gap-1">
+                                                        <i data-lucide="eye" class="w-3 h-3"></i> .MD
+                                                    </button>
+                                                ` : ''}
+                                                <button onclick="deleteWatcherHistoryItem('${h.id}')" class="p-1 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800/60 transition" title="Retirer de l'historique">
+                                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 `;
@@ -2523,23 +2651,79 @@
             }
         }
 
-        async function scanWatchersNow() {
-            const btn = document.getElementById('btn-scan-now');
-            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Scanne...';
-            btn.disabled = true;
-            lucide.createIcons();
+        async function scanWatchersNow(force = false) {
+            if (force && !confirm("Voulez-vous forcer la re-conversion (.md) et la ré-indexation de TOUS les fichiers présents dans les dossiers d'écoute actifs ?")) {
+                return;
+            }
+            const btn = document.getElementById(force ? 'btn-force-rescan-now' : 'btn-scan-now');
+            const origHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Traitement...';
+                btn.disabled = true;
+                lucide.createIcons();
+            }
 
             try {
-                const res = await fetch(`${API_BASE}/watchers/scan-now`, { method: 'POST' });
+                const res = await fetch(`${API_BASE}/watchers/scan-now`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ force: Boolean(force) })
+                });
                 const data = await res.json();
                 await fetchLiveWatcherData(true);
             } catch (e) {
                 alert("Erreur lors du scan des dossiers.");
             } finally {
-                btn.innerHTML = '<i data-lucide="scan" class="w-4 h-4 text-indigo-400"></i> Scanner Maintenant';
-                btn.disabled = false;
+                if (btn) {
+                    btn.innerHTML = origHtml;
+                    btn.disabled = false;
+                    lucide.createIcons();
+                }
+            }
+        }
+
+        async function rescanSingleWatcher(watcherId, colName) {
+            if (!confirm(`Re-convertir (.md) et ré-indexer tous les fichiers du dossier associé à la collection "${colName}" ?`)) return;
+            const btn = document.getElementById(`btn-rescan-watcher-${watcherId}`);
+            const origHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> En cours...';
+                btn.disabled = true;
                 lucide.createIcons();
             }
+            try {
+                const res = await fetch(`${API_BASE}/watchers/${watcherId}/rescan`, { method: 'POST' });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+                await fetchLiveWatcherData(true);
+            } catch (err) {
+                alert(`Erreur lors de la regénération du dossier : ${err.message}`);
+            } finally {
+                if (btn) {
+                    btn.innerHTML = origHtml;
+                    btn.disabled = false;
+                    lucide.createIcons();
+                }
+            }
+        }
+
+        async function retryWatcherHistoryItem(historyId, filename) {
+            if (!confirm(`Relancer la conversion (.md) et l'ingestion pour "${filename}" ?`)) return;
+            try {
+                const res = await fetch(`${API_BASE}/watchers/history/${historyId}/retry`, { method: 'POST' });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+                await fetchLiveWatcherData(true);
+            } catch (err) {
+                alert(`Erreur lors de la regénération du fichier : ${err.message}`);
+            }
+        }
+
+        async function deleteWatcherHistoryItem(historyId) {
+            try {
+                await fetch(`${API_BASE}/watchers/history/${historyId}`, { method: 'DELETE' });
+                await fetchLiveWatcherData(true);
+            } catch (e) {}
         }
 
         function openCreateWatcherModal() {
@@ -2589,7 +2773,7 @@
                 await fetch(`${API_BASE}/watchers/${watcherId}`, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ is_active: isActive })
+                    body: JSON.stringify({ enabled: isActive, is_active: isActive })
                 });
                 fetchLiveWatcherData(true);
             } catch (e) {}
@@ -2604,7 +2788,7 @@
         }
 
         async function clearWatcherHistoryUI() {
-            if (!confirm("Effacer tout l'historique d'ingestion ?")) return;
+            if (!confirm("Effacer tout l'historique d'ingestion ? Cela permettra de rescanner tous les fichiers des dossiers surveillés.")) return;
             try {
                 await fetch(`${API_BASE}/watchers/history`, { method: 'DELETE' });
                 fetchLiveWatcherData(true);
