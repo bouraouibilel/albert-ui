@@ -383,9 +383,13 @@ class WatcherService:
                         "id": albert_doc_id,
                         "filename": md_filename,
                         "name": filename,
+                        "doc_title": conv_result.get("doc_title", Path(filename).stem),
+                        "doc_version": conv_result.get("doc_version", "N/A"),
                         "collection_id": collection_id,
                         "original_format": Path(filename).suffix.lower(),
                         "size_chars": conv_result["char_count"],
+                        "chunk_size": 2048,
+                        "chunk_overlap": 256,
                         "status": "indexed_in_albert",
                         "ingested_at": datetime.datetime.now().isoformat(),
                         "source": "auto_watcher"

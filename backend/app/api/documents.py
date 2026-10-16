@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Tuple
 import os
 import uuid
 import json
@@ -37,6 +37,16 @@ class IngestRequest(BaseModel):
     filename: str
     markdown_content: str
     original_format: Optional[str] = ".md"
+    chunk_size: Optional[int] = 2048
+    chunk_overlap: Optional[int] = 256
+    preset_separators: Optional[str] = "markdown"
+
+class CompareDocumentsRequest(BaseModel):
+    doc_a_id: str
+    doc_a_name: Optional[str] = None
+    doc_b_id: str
+    doc_b_name: Optional[str] = None
+    use_llm_summary: Optional[bool] = True
 
 class DownloadPackRequest(BaseModel):
     filename: str
@@ -196,6 +206,8 @@ async def convert_document(
             "doc_id": temp_id,
             "original_filename": file.filename,
             "md_filename": md_filename,
+            "doc_title": conversion_result.get("doc_title", ""),
+            "doc_version": conversion_result.get("doc_version", "N/A"),
             "markdown_content": conversion_result["markdown_content"],
             "pages_count": conversion_result["pages_count"],
             "tables_count": conversion_result["tables_count"],
@@ -207,7 +219,8 @@ async def convert_document(
 @router.post("/ingest")
 async def ingest_document_to_albert(payload: IngestRequest):
     """
-    Étape cruciale 2: Envoie le document Markdown validé/édité vers la collection Albert API.
+    Étape cruciale 2: Envoie le document Markdown validé/édité vers la collection Albert API
+    avec paramètres de découpage optimisés (chunk_size=2048, chunk_overlap=256, preset_separators='markdown').
     """
     temp_id = str(uuid.uuid4())[:8]
     md_filename = payload.filename if payload.filename.endswith(".md") else f"{payload.filename}.md"
@@ -216,20 +229,33 @@ async def ingest_document_to_albert(payload: IngestRequest):
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(payload.markdown_content)
 
+    chunk_size = payload.chunk_size or 2048
+    chunk_overlap = payload.chunk_overlap if payload.chunk_overlap is not None else 256
+    preset_separators = payload.preset_separators if payload.preset_separators is not None else "markdown"
+
     result = await albert_client.upload_document(
         collection_id=payload.collection_id,
         file_path=file_path,
-        filename=md_filename
+        filename=md_filename,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        preset_separators=preset_separators
     )
+
+    doc_meta_extracted = DocumentConverter.extract_doc_metadata(payload.filename)
 
     docs = get_local_docs()
     new_doc_meta = {
         "id": result.get("id", temp_id),
-        "filename": md_filename,
+        "filename": f"{temp_id}_{md_filename}",
         "name": payload.filename,
+        "doc_title": doc_meta_extracted["doc_title"],
+        "doc_version": doc_meta_extracted["doc_version"],
         "collection_id": payload.collection_id,
         "original_format": payload.original_format,
         "size_chars": len(payload.markdown_content),
+        "chunk_size": chunk_size,
+        "chunk_overlap": chunk_overlap,
         "status": "indexed_in_albert",
         "ingested_at": result.get("created_at")
     }
@@ -244,9 +270,257 @@ async def ingest_document_to_albert(payload: IngestRequest):
 
     return {
         "status": "success",
-        "message": "Document Markdown indexé avec succès dans Albert API",
+        "message": f"Document Markdown indexé avec succès dans Albert API (Chunk: {chunk_size} / Overlap: {chunk_overlap})",
         "document_metadata": new_doc_meta
     }
+
+
+def _parse_markdown_sections(md_content: str) -> List[dict]:
+    """
+    Découpe un document Markdown en sections structurées (basées sur les titres #, ##, ###...)
+    en nettoyant les balises de métadonnées [DOC: ... | VERSION: ...] pour permettre une
+    comparaison purement fonctionnelle entre deux versions d'un même document.
+    """
+    lines = md_content.splitlines()
+    sections = []
+    current_title = "Préambule / En-tête"
+    current_number = "0"
+    current_level = 1
+    current_lines = []
+
+    heading_regex = re.compile(r'^(#{1,6})\s+(.+)$')
+    num_regex = re.compile(r'^((?:chapitre|annexe)\s+\d+|\d+(?:\.\d+)*)\b[\s\.\-\:]*\s*(.*)$', re.IGNORECASE)
+
+    def flush_section(title: str, number: str, level: int, body_lines: List[str]):
+        # Filtrer les lignes purement techniques (tags de contexte, séparateurs, ancres d'en-tête)
+        cleaned = []
+        for ln in body_lines:
+            s = ln.strip()
+            if s.startswith("> 🏷️ **[DOC:") or s.startswith("- **Document de référence"):
+                continue
+            if s.startswith("- **Fichier source") or s.startswith("- **Version identifiée") or s.startswith("- **Format d'origine"):
+                continue
+            if s == "---":
+                continue
+            cleaned.append(ln)
+        body_text = "\n".join(cleaned).strip()
+        if not body_text and title == "Préambule / En-tête":
+            return
+        has_table = "|" in body_text and "| ---" in body_text
+        sections.append({
+            "number": number,
+            "title": title,
+            "level": level,
+            "content": body_text,
+            "has_table": has_table
+        })
+
+    for line in lines:
+        m = heading_regex.match(line.strip())
+        if m:
+            flush_section(current_title, current_number, current_level, current_lines)
+            current_level = len(m.group(1))
+            raw_heading = m.group(2).strip()
+            # Ignorer le titre H1 global du document s'il commence par 📄 Document :
+            if raw_heading.startswith("📄 Document :"):
+                current_title = "Préambule / En-tête"
+                current_number = "0"
+                current_lines = []
+                continue
+            current_title = raw_heading
+            nm = num_regex.match(raw_heading)
+            if nm:
+                current_number = nm.group(1).upper().rstrip('.')
+            else:
+                current_number = ""
+            current_lines = []
+        else:
+            current_lines.append(line)
+
+    flush_section(current_title, current_number, current_level, current_lines)
+    return sections
+
+
+def _normalize_section_key(sec: dict) -> str:
+    """Clé d'appariement d'une section entre deux versions (numéro + titre normalisé ou titre seul)."""
+    title_clean = re.sub(r'^((?:chapitre|annexe)\s+\d+|\d+(?:\.\d+)*)\b[\s\.\-\:]*', '', sec["title"], flags=re.IGNORECASE).strip().lower()
+    title_clean = re.sub(r'[^a-z0-9àâäéèêëîïôöùûüç]+', ' ', title_clean).strip()
+    if sec["number"] and sec["number"] != "0":
+        return f"{sec['number']}::{title_clean}"
+    return title_clean or sec["title"].lower()
+
+
+@router.post("/compare")
+async def compare_documents(payload: CompareDocumentsRequest):
+    """
+    Compare deux versions d'un document (section par section et tableau par tableau)
+    et génère une synthèse des ajouts, suppressions et modifications.
+    """
+    import difflib
+
+    async def load_doc_text(doc_id: str, doc_name: Optional[str]) -> Tuple[str, str]:
+        try:
+            res = await get_document_markdown(document_id=doc_id, filename=doc_name)
+            return res.get("markdown_content", ""), res.get("original_filename") or doc_name or doc_id
+        except Exception:
+            # Fallback : reconstruire depuis les chunks Albert API
+            chunks = await albert_client.get_document_chunks(doc_id, limit=200)
+            if chunks:
+                text = "\n\n".join(c.get("content", "") for c in chunks if c.get("content"))
+                return text, doc_name or doc_id
+            raise HTTPException(status_code=404, detail=f"Impossible de récupérer le contenu du document '{doc_name or doc_id}'.")
+
+    md_a, name_a = await load_doc_text(payload.doc_a_id, payload.doc_a_name)
+    md_b, name_b = await load_doc_text(payload.doc_b_id, payload.doc_b_name)
+
+    sections_a = _parse_markdown_sections(md_a)
+    sections_b = _parse_markdown_sections(md_b)
+
+    # Indexation des sections avec gestion des clés et repli par numéro ou titre
+    map_a = {}
+    for idx, s in enumerate(sections_a):
+        key = _normalize_section_key(s) or f"sec_{idx}"
+        if key in map_a:
+            key = f"{key}_{idx}"
+        s["_key"] = key
+        map_a[key] = s
+
+    map_b = {}
+    for idx, s in enumerate(sections_b):
+        key = _normalize_section_key(s) or f"sec_{idx}"
+        if key in map_b:
+            key = f"{key}_{idx}"
+        s["_key"] = key
+        map_b[key] = s
+
+    # Second passage d'appariement : si une section a changé légèrement de numéro ou de titre
+    matched_a_keys = set()
+    matched_b_keys = set()
+    pairs = []
+
+    # 1. Appariement exact sur _key
+    for k_b, sec_b in map_b.items():
+        if k_b in map_a:
+            pairs.append((map_a[k_b], sec_b))
+            matched_a_keys.add(k_b)
+            matched_b_keys.add(k_b)
+
+    # 2. Appariement sur le numéro de paragraphe exact (ex: 3.2) ou sur le titre sans numéro
+    for k_b, sec_b in map_b.items():
+        if k_b in matched_b_keys:
+            continue
+        num_b = sec_b.get("number")
+        title_b_norm = re.sub(r'^((?:chapitre|annexe)\s+\d+|\d+(?:\.\d+)*)\b[\s\.\-\:]*', '', sec_b["title"], flags=re.IGNORECASE).strip().lower()
+        for k_a, sec_a in map_a.items():
+            if k_a in matched_a_keys:
+                continue
+            num_a = sec_a.get("number")
+            title_a_norm = re.sub(r'^((?:chapitre|annexe)\s+\d+|\d+(?:\.\d+)*)\b[\s\.\-\:]*', '', sec_a["title"], flags=re.IGNORECASE).strip().lower()
+            if (num_b and num_b != "0" and num_b == num_a) or (title_b_norm and len(title_b_norm) > 4 and title_b_norm == title_a_norm):
+                pairs.append((sec_a, sec_b))
+                matched_a_keys.add(k_a)
+                matched_b_keys.add(k_b)
+                break
+
+    added_sections = [
+        {"title": s["title"], "number": s["number"], "has_table": s["has_table"], "preview": s["content"][:500]}
+        for k, s in map_b.items() if k not in matched_b_keys
+    ]
+    removed_sections = [
+        {"title": s["title"], "number": s["number"], "has_table": s["has_table"], "preview": s["content"][:500]}
+        for k, s in map_a.items() if k not in matched_a_keys
+    ]
+
+    modified_sections = []
+    unchanged_count = 0
+
+    for sec_a, sec_b in pairs:
+        norm_a = re.sub(r'\s+', ' ', sec_a["content"]).strip()
+        norm_b = re.sub(r'\s+', ' ', sec_b["content"]).strip()
+        if norm_a == norm_b and sec_a["title"].strip() == sec_b["title"].strip():
+            unchanged_count += 1
+        else:
+            lines_a = [ln for ln in sec_a["content"].splitlines() if ln.strip()]
+            lines_b = [ln for ln in sec_b["content"].splitlines() if ln.strip()]
+            diff_gen = list(difflib.unified_diff(
+                lines_a, lines_b,
+                fromfile=f"Version A ({name_a})",
+                tofile=f"Version B ({name_b})",
+                lineterm="",
+                n=1
+            ))
+            # Garder les lignes significatives du diff (+ / -)
+            diff_Changes = [ln for ln in diff_gen[2:] if ln.startswith("+") or ln.startswith("-") or ln.startswith("@@")][:40]
+            similarity = round(difflib.SequenceMatcher(None, norm_a, norm_b).ratio() * 100, 1)
+
+            modified_sections.append({
+                "title_a": sec_a["title"],
+                "title_b": sec_b["title"],
+                "number": sec_b["number"] or sec_a["number"],
+                "has_table": sec_a["has_table"] or sec_b["has_table"],
+                "similarity_pct": similarity,
+                "diff_lines": diff_Changes,
+                "excerpt_a": sec_a["content"][:600],
+                "excerpt_b": sec_b["content"][:600]
+            })
+
+    # Synthèse IA optionnelle via Albert API
+    llm_summary = None
+    if payload.use_llm_summary and (added_sections or removed_sections or modified_sections):
+        diff_digest = []
+        if added_sections:
+            diff_digest.append("SECTIONS AJOUTÉES DANS LA NOUVELLE VERSION :\n" + "\n".join(f"- {s['title']}: {s['preview'][:200]}" for s in added_sections[:10]))
+        if removed_sections:
+            diff_digest.append("SECTIONS SUPPRIMÉES :\n" + "\n".join(f"- {s['title']}" for s in removed_sections[:10]))
+        if modified_sections:
+            mod_txt = []
+            for m in modified_sections[:12]:
+                changes_str = "\n  ".join(m["diff_lines"][:12])
+                mod_txt.append(f"- Section '{m['title_b']}' (similarité {m['similarity_pct']}%) :\n  {changes_str}")
+            diff_digest.append("SECTIONS MODIFIÉES :\n" + "\n".join(mod_txt))
+
+        prompt_text = (
+            f"Compare ces deux versions de documents techniques :\n"
+            f"- Version A (Référence) : {name_a}\n"
+            f"- Version B (Cible) : {name_b}\n\n"
+            f"Voici les écarts détectés section par section :\n\n"
+            + "\n\n".join(diff_digest)
+            + "\n\nFais une synthèse structurée en français (points clés, impacts sur les tableaux/batchs/règles de gestion, ajouts et suppressions)."
+        )
+        llm_summary = await albert_client.generate_text(
+            system_prompt="Tu es un expert en analyse documentaire et spécifications techniques (SFD). Tu rédiges des synthèses d'écarts claires, précises et factuelles en français.",
+            user_prompt=prompt_text,
+            temperature=0.15
+        )
+
+    if not llm_summary:
+        if not added_sections and not removed_sections and not modified_sections:
+            llm_summary = "Les deux documents sont fonctionnellement identiques (aucun écart détecté sur les paragraphes ou tableaux)."
+        else:
+            llm_summary = (
+                f"Comparaison terminée entre **{name_a}** et **{name_b}** : "
+                f"**{len(modified_sections)}** section(s) modifiée(s), "
+                f"**{len(added_sections)}** section(s) ajoutée(s), "
+                f"**{len(removed_sections)}** section(s) supprimée(s) et "
+                f"**{unchanged_count}** section(s) inchangée(s)."
+            )
+
+    return {
+        "status": "success",
+        "doc_a": {"id": payload.doc_a_id, "name": name_a, "sections_count": len(sections_a)},
+        "doc_b": {"id": payload.doc_b_id, "name": name_b, "sections_count": len(sections_b)},
+        "stats": {
+            "added_count": len(added_sections),
+            "removed_count": len(removed_sections),
+            "modified_count": len(modified_sections),
+            "unchanged_count": unchanged_count
+        },
+        "added_sections": added_sections,
+        "removed_sections": removed_sections,
+        "modified_sections": modified_sections,
+        "summary": llm_summary
+    }
+
 
 @router.post("/download-pack")
 async def download_document_pack(payload: DownloadPackRequest):

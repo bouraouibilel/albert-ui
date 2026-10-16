@@ -623,16 +623,46 @@
                                 <span>Conversion & analyse multimodale des schémas avec Albert API...</span>
                             </div>
                         </div>
+                        <div class="mt-4 pt-4 border-t border-slate-800 space-y-3">
+                            <label class="block text-sm font-medium text-slate-300">3. Paramètres de Découpage (Chunking) & Tags RAG</label>
+                            <div class="flex flex-wrap gap-1.5">
+                                <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-600/20 text-blue-300 border border-blue-500/30">🏷️ Tags [DOC | VERSION | SECTION]</span>
+                                <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-600/20 text-emerald-300 border border-emerald-500/30">📊 Synthèse Exhaustive Tableaux</span>
+                                <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-600/20 text-indigo-300 border border-indigo-500/30">📑 Titres Numérotés (1. / 1.2 / 1.2.3)</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 pt-1">
+                                <div>
+                                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Taille Chunk (caractères)</label>
+                                    <select id="ingest-chunk-size" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <option value="1024">1024 (Court)</option>
+                                        <option value="1536">1536 (Moyen)</option>
+                                        <option value="2048" selected>2048 (Recommandé Word/SFD)</option>
+                                        <option value="3072">3072 (Grand / Tableaux longs)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Chevauchement (Overlap)</label>
+                                    <select id="ingest-chunk-overlap" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <option value="128">128 caractères</option>
+                                        <option value="256" selected>256 (Recommandé)</option>
+                                        <option value="512">512 (Contexte dense)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Statistics Card -->
                     <div id="conversion-stats" class="hidden bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
-                        <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                            <i data-lucide="sparkles" class="w-4 h-4 text-emerald-400"></i> Rapport de Conversion
-                        </h3>
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                <i data-lucide="sparkles" class="w-4 h-4 text-emerald-400"></i> Rapport de Conversion
+                            </h3>
+                            <span id="stat-doc-meta" class="px-2 py-0.5 rounded text-[10px] font-mono bg-blue-950 text-blue-300 border border-blue-800/40"></span>
+                        </div>
                         <div class="grid grid-cols-3 gap-2 text-center">
                             <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/60">
-                                <span class="text-xs text-slate-400 block">Pages</span>
+                                <span class="text-xs text-slate-400 block">Sections / Pages</span>
                                 <span id="stat-pages" class="text-lg font-bold text-white">0</span>
                             </div>
                             <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/60">
@@ -649,7 +679,7 @@
 
                 <!-- Editor Right -->
                 <div class="lg:col-span-7 space-y-4">
-                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col h-[620px]">
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col h-[660px]">
                         <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
                             <h3 class="text-sm font-semibold text-white flex items-center gap-2">
                                 <i data-lucide="edit-3" class="w-4 h-4 text-blue-400"></i> Contenu Markdown Généré (.md)
@@ -689,47 +719,154 @@
             </div>
         </section>
 
-        <!-- TAB 3: SANDBOX RAG & RERANKER -->
+        <!-- TAB 3: SANDBOX RAG, RECHERCHE HYBRIDE & COMPARATEUR DE VERSIONS -->
         <section id="tab-sandbox" class="space-y-6 hidden">
-            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-                <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                    <i data-lucide="flask-conical" class="w-5 h-5 text-indigo-400"></i> Bac à Sable RAG & Réordonnancement (Reranking)
-                </h2>
-                <p class="text-slate-400 text-sm mt-1">Testez la pertinence de la recherche vectorielle et l'effet du Reranking Albert API (`/v1/rerank`) sur vos collections Markdown.</p>
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="flask-conical" class="w-5 h-5 text-indigo-400"></i> Bac à Sable RAG, Recherche Hybride & Comparateur de Versions
+                    </h2>
+                    <p class="text-slate-400 text-sm mt-1">Testez la recherche hybride (`/v1/search` + `/v1/rerank`), filtrez par nom de document et comparez deux versions d'un même document Word/PDF.</p>
+                </div>
+                <div class="bg-slate-950 border border-slate-800 p-1 rounded-xl flex items-center gap-1 shrink-0">
+                    <button onclick="switchSandboxMode('search')" id="btn-sandbox-mode-search" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white flex items-center gap-1.5 transition">
+                        <i data-lucide="search" class="w-3.5 h-3.5"></i> Recherche RAG & Rerank
+                    </button>
+                    <button onclick="switchSandboxMode('compare')" id="btn-sandbox-mode-compare" class="px-3.5 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white flex items-center gap-1.5 transition">
+                        <i data-lucide="git-compare" class="w-3.5 h-3.5"></i> Comparer 2 Versions
+                    </button>
+                </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- MODE 1: RECHERCHE RAG HYBRIDE & RERANKING -->
+            <div id="sandbox-panel-search" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <!-- Controls Left -->
                 <div class="lg:col-span-5 space-y-4">
                     <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-slate-300 mb-2">Collection à évaluer</label>
-                            <select id="sandbox-collection-select" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">1. Collection à interroger</label>
+                            <select id="sandbox-collection-select" onchange="loadSandboxCollectionDocs()" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                                 <option value="">-- Sélectionner une collection --</option>
                             </select>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-slate-300 mb-2">Question de test</label>
-                            <textarea id="sandbox-query" rows="3" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Ex: Quelles sont les exclusions Sonar ?"></textarea>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">2. Cibler un document précis (Optionnel)</label>
+                            <select id="sandbox-doc-select" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                <option value="">-- Tous les documents de la collection --</option>
+                            </select>
                         </div>
 
-                        <button onclick="runRAGTest()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl transition shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2">
-                            <i data-lucide="search" class="w-4 h-4"></i> Lancer le Test RAG & Rerank
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Filtre par Tag / Nom ou Version de document (Optionnel)</label>
+                            <input type="text" id="sandbox-doc-tag-filter" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Ex: SFD_PASRAU ou V29.3">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">Mode de Recherche</label>
+                                <select id="sandbox-search-method" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                    <option value="hybrid" selected>Hybride (Sémantique + BM25)</option>
+                                    <option value="semantic">Sémantique (Embeddings)</option>
+                                    <option value="lexical">Lexicale (Mots-clés exacts)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">Extraits retenus (Top-K)</label>
+                                <select id="sandbox-top-n" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                    <option value="3">Top 3 extraits</option>
+                                    <option value="5" selected>Top 5 (Recommandé)</option>
+                                    <option value="8">Top 8 (Tableaux longs)</option>
+                                    <option value="10">Top 10 (Exhaustif)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">3. Question de test</label>
+                            <textarea id="sandbox-query" rows="3" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Ex: Lister les différents batchs présents dans le document"></textarea>
+                        </div>
+
+                        <button onclick="runRAGTest()" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm rounded-xl transition shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
+                            <i data-lucide="search" class="w-4 h-4"></i> Lancer la Recherche Hybride & Rerank
                         </button>
                     </div>
                 </div>
 
                 <!-- Results Right -->
-                <div class="lg:col-span-7">
-                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4 min-h-[400px]">
-                        <h3 class="text-sm font-semibold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
-                            <i data-lucide="layers" class="w-4 h-4 text-indigo-400"></i> Extraits Markdown Réordonnés (Scores Reranker)
-                        </h3>
+                <div class="lg:col-span-7 space-y-4">
+                    <!-- AI Synthesized Answer Card -->
+                    <div id="sandbox-ai-answer-card" class="hidden bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                <i data-lucide="bot" class="w-4 h-4 text-emerald-400"></i> Réponse RAG Synthétisée (Ancrée sur les extraits)
+                            </h3>
+                            <span id="sandbox-search-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Recherche Hybride + Reranker</span>
+                        </div>
+                        <div id="sandbox-ai-answer-content" class="prose prose-invert max-w-none text-xs leading-relaxed"></div>
+                    </div>
+
+                    <!-- Reranked Chunks Card -->
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4 min-h-[380px]">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                                <i data-lucide="layers" class="w-4 h-4 text-indigo-400"></i> Extraits Markdown Réordonnés (Scores Reranker & Tags)
+                            </h3>
+                            <span id="sandbox-candidates-count" class="text-[11px] text-slate-400 font-mono"></span>
+                        </div>
 
                         <div id="sandbox-results" class="space-y-3">
-                            <p class="text-xs text-slate-500 text-center py-12">Lancez une requête pour évaluer le classement des passages Markdown.</p>
+                            <p class="text-xs text-slate-500 text-center py-12">Lancez une requête pour évaluer le classement des passages Markdown et la restitution des tableaux.</p>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODE 2: COMPARATEUR DE VERSIONS DE DOCUMENTS -->
+            <div id="sandbox-panel-compare" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Controls Left -->
+                <div class="lg:col-span-4 space-y-4">
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                            <i data-lucide="git-compare" class="w-4 h-4 text-blue-400"></i> Sélection des 2 Versions à Comparer
+                        </h3>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">1. Collection</label>
+                            <select id="compare-collection-select" onchange="loadCompareCollectionDocs()" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                <option value="">-- Sélectionner une collection --</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">2. Document Version A (Ancienne / Référence)</label>
+                            <select id="compare-doc-a-select" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                <option value="">-- Choisir la version A --</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">3. Document Version B (Nouvelle / Cible)</label>
+                            <select id="compare-doc-b-select" class="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                <option value="">-- Choisir la version B --</option>
+                            </select>
+                        </div>
+
+                        <label class="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer pt-1">
+                            <input type="checkbox" id="compare-use-llm" checked class="rounded border-slate-700">
+                            <span>Générer une synthèse IA des impacts (batchs, tableaux, règles)</span>
+                        </label>
+
+                        <button onclick="runDocumentComparison()" id="btn-run-compare" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm rounded-xl transition shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
+                            <i data-lucide="git-compare" class="w-4 h-4"></i> Comparer les 2 Versions
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Comparison Results Right -->
+                <div class="lg:col-span-8 space-y-4">
+                    <div id="compare-results-container" class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4 min-h-[420px]">
+                        <p class="text-xs text-slate-500 text-center py-16">Sélectionnez deux versions d'un document (ex: V29.2 et V29.3) pour analyser les paragraphes et tableaux ajoutés, supprimés ou modifiés.</p>
                     </div>
                 </div>
             </div>
@@ -1093,9 +1230,14 @@
                     </h3>
                     <p class="text-xs text-slate-400 mt-0.5" id="modal-docs-subtitle">Liste des fichiers indexés dans Albert API.</p>
                 </div>
-                <button onclick="closeDocsModal()" class="text-slate-400 hover:text-white p-1">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="openComparatorFromDocsModal()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition flex items-center gap-1.5 shadow-sm" title="Comparer deux versions d'un document de cette collection">
+                        <i data-lucide="git-compare" class="w-3.5 h-3.5"></i> Comparer 2 versions
+                    </button>
+                    <button onclick="closeDocsModal()" class="text-slate-400 hover:text-white p-1">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
             </div>
 
             <div class="flex-1 overflow-y-auto custom-scrollbar" id="modal-docs-container">
@@ -1607,7 +1749,10 @@
             lucide.createIcons();
         }
 
+        let currentDocsModalCollectionId = "";
+
         async function openDocsModal(colId, colName) {
+            currentDocsModalCollectionId = colId;
             document.getElementById('modal-docs').classList.remove('hidden');
             document.getElementById('modal-docs-title').innerHTML = `<i data-lucide="folder" class="w-5 h-5 text-blue-400"></i> Documents de "${colName}"`;
             document.getElementById('modal-docs-subtitle').innerText = `ID Collection Albert API: ${colId}`;
@@ -1862,13 +2007,28 @@
                 
                 const targetSelect = document.getElementById('target-collection-select');
                 const sandboxSelect = document.getElementById('sandbox-collection-select');
+                const compareSelect = document.getElementById('compare-collection-select');
                 const watcherCreateSelect = document.getElementById('w-create-col-select');
                 
+                const prevTarget = targetSelect ? targetSelect.value : '';
+                const prevSandbox = sandboxSelect ? sandboxSelect.value : '';
+                const prevCompare = compareSelect ? compareSelect.value : '';
+
                 const optionsHtml = '<option value="">-- Choisir une collection --</option>' + 
                     cols.map(c => `<option value="${c.id || c.name}">${c.name} (${c.visibility || 'privée'})</option>`).join('');
 
-                if (targetSelect) targetSelect.innerHTML = optionsHtml;
-                if (sandboxSelect) sandboxSelect.innerHTML = optionsHtml;
+                if (targetSelect) {
+                    targetSelect.innerHTML = optionsHtml;
+                    if (prevTarget) targetSelect.value = prevTarget;
+                }
+                if (sandboxSelect) {
+                    sandboxSelect.innerHTML = optionsHtml;
+                    if (prevSandbox) sandboxSelect.value = prevSandbox;
+                }
+                if (compareSelect) {
+                    compareSelect.innerHTML = optionsHtml;
+                    if (prevCompare) compareSelect.value = prevCompare;
+                }
                 if (watcherCreateSelect) watcherCreateSelect.innerHTML = optionsHtml;
             } catch (e) {
                 console.error(e);
@@ -1971,6 +2131,10 @@
                 document.getElementById('stat-pages').innerText = data.pages_count || 1;
                 document.getElementById('stat-tables').innerText = data.tables_count || 0;
                 document.getElementById('stat-chars').innerText = data.char_count || 0;
+                const docMetaEl = document.getElementById('stat-doc-meta');
+                if (docMetaEl) {
+                    docMetaEl.innerText = `DOC: ${data.doc_title || currentFile.name} | V: ${data.doc_version || 'N/A'}`;
+                }
                 document.getElementById('conversion-stats').classList.remove('hidden');
 
                 document.getElementById('ingest-btn').disabled = false;
@@ -2071,6 +2235,10 @@
 
             const mdContent = document.getElementById('markdown-editor').value;
             const filename = convertedDocData ? convertedDocData.md_filename : (currentFile ? currentFile.name + '.md' : 'doc.md');
+            const chunkSizeEl = document.getElementById('ingest-chunk-size');
+            const chunkOverlapEl = document.getElementById('ingest-chunk-overlap');
+            const chunkSize = chunkSizeEl ? parseInt(chunkSizeEl.value, 10) : 2048;
+            const chunkOverlap = chunkOverlapEl ? parseInt(chunkOverlapEl.value, 10) : 256;
 
             const btn = document.getElementById('ingest-btn');
             btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Indexation en cours...';
@@ -2084,7 +2252,10 @@
                     body: JSON.stringify({
                         collection_id: targetCol,
                         filename: filename,
-                        markdown_content: mdContent
+                        markdown_content: mdContent,
+                        chunk_size: chunkSize,
+                        chunk_overlap: chunkOverlap,
+                        preset_separators: "markdown"
                     })
                 });
                 const data = await res.json();
@@ -2440,43 +2611,338 @@
             } catch (e) {}
         }
 
-        // --- RAG SANDBOX ---
+        // --- RAG SANDBOX, HYBRID SEARCH & VERSION COMPARATOR ---
+        function switchSandboxMode(mode) {
+            const panelSearch = document.getElementById('sandbox-panel-search');
+            const panelCompare = document.getElementById('sandbox-panel-compare');
+            const btnSearch = document.getElementById('btn-sandbox-mode-search');
+            const btnCompare = document.getElementById('btn-sandbox-mode-compare');
+
+            if (mode === 'compare') {
+                panelSearch.classList.add('hidden');
+                panelCompare.classList.remove('hidden');
+                btnCompare.className = "px-3.5 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white flex items-center gap-1.5 transition";
+                btnSearch.className = "px-3.5 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white flex items-center gap-1.5 transition";
+            } else {
+                panelCompare.classList.add('hidden');
+                panelSearch.classList.remove('hidden');
+                btnSearch.className = "px-3.5 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white flex items-center gap-1.5 transition";
+                btnCompare.className = "px-3.5 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white flex items-center gap-1.5 transition";
+            }
+            lucide.createIcons();
+        }
+
+        async function loadSandboxCollectionDocs() {
+            const colId = document.getElementById('sandbox-collection-select').value;
+            const docSelect = document.getElementById('sandbox-doc-select');
+            if (!docSelect) return;
+            if (!colId) {
+                docSelect.innerHTML = '<option value="">-- Tous les documents de la collection --</option>';
+                return;
+            }
+            try {
+                const res = await fetch(`${API_BASE}/documents/?collection_id=${encodeURIComponent(colId)}`);
+                const docs = await res.json();
+                docSelect.innerHTML = '<option value="">-- Tous les documents de la collection --</option>' +
+                    (docs || []).map(d => `<option value="${d.id}">${d.name || d.filename} (ID: ${d.id})</option>`).join('');
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function loadCompareCollectionDocs() {
+            const colId = document.getElementById('compare-collection-select').value;
+            const selA = document.getElementById('compare-doc-a-select');
+            const selB = document.getElementById('compare-doc-b-select');
+            if (!selA || !selB) return;
+            if (!colId) {
+                selA.innerHTML = '<option value="">-- Choisir la version A --</option>';
+                selB.innerHTML = '<option value="">-- Choisir la version B --</option>';
+                return;
+            }
+            try {
+                const res = await fetch(`${API_BASE}/documents/?collection_id=${encodeURIComponent(colId)}`);
+                const docs = await res.json();
+                const opts = (docs || []).map(d => {
+                    const label = d.name || d.filename || d.id;
+                    const ver = d.doc_version && d.doc_version !== 'N/A' ? ` [V: ${d.doc_version}]` : '';
+                    return `<option value="${d.id}" data-name="${label.replace(/"/g, '&quot;')}">${label}${ver} (ID: ${d.id})</option>`;
+                }).join('');
+                selA.innerHTML = '<option value="">-- Choisir la version A (Ancienne) --</option>' + opts;
+                selB.innerHTML = '<option value="">-- Choisir la version B (Nouvelle) --</option>' + opts;
+                if (docs && docs.length >= 2) {
+                    selA.selectedIndex = 1;
+                    selB.selectedIndex = 2;
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function openComparatorFromDocsModal() {
+            const colId = currentDocsModalCollectionId;
+            closeDocsModal();
+            switchTab('sandbox');
+            switchSandboxMode('compare');
+            await populateCollectionDropdowns();
+            if (colId) {
+                const compareSelect = document.getElementById('compare-collection-select');
+                if (compareSelect) {
+                    compareSelect.value = colId;
+                    await loadCompareCollectionDocs();
+                }
+            }
+        }
+
         async function runRAGTest() {
             const colId = document.getElementById('sandbox-collection-select').value;
             const query = document.getElementById('sandbox-query').value.trim();
             if (!colId || !query) return alert("Sélectionnez une collection et saisissez une question.");
 
+            const docId = document.getElementById('sandbox-doc-select') ? (document.getElementById('sandbox-doc-select').value || null) : null;
+            const docTagFilter = document.getElementById('sandbox-doc-tag-filter') ? (document.getElementById('sandbox-doc-tag-filter').value.trim() || null) : null;
+            const searchMethod = document.getElementById('sandbox-search-method') ? document.getElementById('sandbox-search-method').value : 'hybrid';
+            const topN = document.getElementById('sandbox-top-n') ? parseInt(document.getElementById('sandbox-top-n').value, 10) : 5;
+
             const resultsContainer = document.getElementById('sandbox-results');
-            resultsContainer.innerHTML = '<div class="py-8 text-center text-slate-400"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto text-indigo-400 mb-2"></i> Évaluation du Reranking Albert API...</div>';
+            const aiCard = document.getElementById('sandbox-ai-answer-card');
+            const aiContent = document.getElementById('sandbox-ai-answer-content');
+            const candCountEl = document.getElementById('sandbox-candidates-count');
+
+            if (aiCard) aiCard.classList.add('hidden');
+            resultsContainer.innerHTML = '<div class="py-10 text-center text-slate-400"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto text-indigo-400 mb-2"></i> Recherche Hybride Albert API + Reranking Cross-Encoder & Synthèse IA en cours...</div>';
             lucide.createIcons();
 
             try {
                 const res = await fetch(`${API_BASE}/rag/rerank`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ collection_id: colId, query: query, top_n: 3 })
+                    body: JSON.stringify({
+                        collection_id: colId,
+                        query: query,
+                        top_n: topN,
+                        search_method: searchMethod,
+                        document_id: docId,
+                        document_name_filter: docTagFilter,
+                        generate_answer: true
+                    })
                 });
                 const data = await res.json();
 
+                if (candCountEl) {
+                    candCountEl.innerText = `${data.candidates_evaluated || 0} candidat(s) évalué(s) • Mode: ${(data.search_method || 'hybrid').toUpperCase()}`;
+                }
+
+                if (data.generated_answer && aiCard && aiContent) {
+                    aiContent.innerHTML = marked.parse(data.generated_answer);
+                    aiCard.classList.remove('hidden');
+                }
+
                 if (!data.reranked_results || data.reranked_results.length === 0) {
-                    resultsContainer.innerHTML = '<p class="text-xs text-slate-400 py-6 text-center">Aucun extrait trouvé.</p>';
+                    resultsContainer.innerHTML = '<p class="text-xs text-slate-400 py-6 text-center">Aucun extrait trouvé pour ces critères.</p>';
                     return;
                 }
 
-                resultsContainer.innerHTML = data.reranked_results.map((r, idx) => `
-                    <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-2">
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="font-bold text-indigo-400">Rang #${idx + 1}</span>
-                            <span class="px-2 py-0.5 bg-indigo-950 border border-indigo-800 text-indigo-300 rounded font-mono text-[10px]">
-                                Rerank Score: ${r.relevance_score}
-                            </span>
+                resultsContainer.innerHTML = data.reranked_results.map((r, idx) => {
+                    const metaBadges = [];
+                    if (r.meta_doc) {
+                        metaBadges.push(`<span class="px-2 py-0.5 bg-blue-950 border border-blue-800/60 text-blue-300 rounded font-mono text-[10px]">📄 DOC: ${r.meta_doc}</span>`);
+                    }
+                    if (r.meta_version && r.meta_version !== 'N/A') {
+                        metaBadges.push(`<span class="px-2 py-0.5 bg-emerald-950 border border-emerald-800/60 text-emerald-300 rounded font-mono text-[10px]">🏷️ V: ${r.meta_version}</span>`);
+                    }
+                    if (r.meta_section) {
+                        metaBadges.push(`<span class="px-2 py-0.5 bg-slate-900 border border-slate-700 text-slate-300 rounded font-mono text-[10px] truncate max-w-xs" title="${r.meta_section}">📑 ${r.meta_section}</span>`);
+                    }
+                    return `
+                        <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-2.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <span class="font-bold text-indigo-400">Rang #${idx + 1}</span>
+                                    ${metaBadges.join('')}
+                                </div>
+                                <span class="px-2 py-0.5 bg-indigo-950 border border-indigo-800 text-indigo-300 rounded font-mono text-[10px]">
+                                    Score Rerank: ${r.relevance_score}
+                                </span>
+                            </div>
+                            <pre class="text-xs text-slate-300 whitespace-pre-wrap font-sans bg-slate-900/60 p-3 rounded-lg border border-slate-800/60 max-h-80 overflow-y-auto custom-scrollbar">${r.document}</pre>
                         </div>
-                        <pre class="text-xs text-slate-300 whitespace-pre-wrap font-sans bg-slate-900/60 p-3 rounded-lg border border-slate-800/60">${r.document}</pre>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
                 lucide.createIcons();
             } catch (err) {
-                resultsContainer.innerHTML = '<p class="text-xs text-rose-400 text-center">Erreur lors de la requête sandbox.</p>';
+                console.error(err);
+                resultsContainer.innerHTML = '<p class="text-xs text-rose-400 text-center py-6">Erreur lors de la requête RAG Hybride.</p>';
+            }
+        }
+
+        async function runDocumentComparison() {
+            const selA = document.getElementById('compare-doc-a-select');
+            const selB = document.getElementById('compare-doc-b-select');
+            const useLlm = document.getElementById('compare-use-llm') ? document.getElementById('compare-use-llm').checked : true;
+
+            const docAId = selA ? selA.value : '';
+            const docBId = selB ? selB.value : '';
+            if (!docAId || !docBId) {
+                return alert("Veuillez sélectionner deux documents (Version A et Version B) à comparer.");
+            }
+            if (docAId === docBId) {
+                return alert("Veuillez sélectionner deux documents distincts pour comparer leurs versions.");
+            }
+
+            const docAName = selA.options[selA.selectedIndex]?.getAttribute('data-name') || docAId;
+            const docBName = selB.options[selB.selectedIndex]?.getAttribute('data-name') || docBId;
+
+            const container = document.getElementById('compare-results-container');
+            const btn = document.getElementById('btn-run-compare');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Comparaison en cours...';
+            container.innerHTML = '<div class="py-16 text-center text-slate-400"><i data-lucide="loader-2" class="w-7 h-7 animate-spin mx-auto text-blue-500 mb-3"></i> Analyse comparative section par section et synthèse des écarts en cours...</div>';
+            lucide.createIcons();
+
+            try {
+                const res = await fetch(`${API_BASE}/documents/compare`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        doc_a_id: docAId,
+                        doc_a_name: docAName,
+                        doc_b_id: docBId,
+                        doc_b_name: docBName,
+                        use_llm_summary: useLlm
+                    })
+                });
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.detail || `HTTP ${res.status}`);
+                }
+                const data = await res.json();
+
+                const stats = data.stats || {};
+                const modSections = data.modified_sections || [];
+                const addSections = data.added_sections || [];
+                const remSections = data.removed_sections || [];
+
+                const escapeHtml = (str) => (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+                container.innerHTML = `
+                    <!-- En-tête de comparaison & KPI -->
+                    <div class="border-b border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                <i data-lucide="git-compare" class="w-5 h-5 text-blue-400"></i>
+                                Rapport d'Écarts : <span class="text-slate-300 font-mono text-xs">${escapeHtml(data.doc_a?.name)}</span> ➔ <span class="text-blue-400 font-mono text-xs">${escapeHtml(data.doc_b?.name)}</span>
+                            </h3>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div class="bg-amber-950/40 border border-amber-800/50 p-3.5 rounded-xl text-center">
+                            <span class="text-[11px] font-semibold block">Sections Modifiées</span>
+                            <span class="text-xl font-bold">${stats.modified_count || 0}</span>
+                        </div>
+                        <div class="bg-emerald-950/50 border border-emerald-800/50 p-3.5 rounded-xl text-center">
+                            <span class="text-[11px] font-semibold block">Sections Ajoutées</span>
+                            <span class="text-xl font-bold text-emerald-400">+${stats.added_count || 0}</span>
+                        </div>
+                        <div class="bg-rose-950/40 border border-rose-800/50 p-3.5 rounded-xl text-center">
+                            <span class="text-[11px] font-semibold block">Sections Supprimées</span>
+                            <span class="text-xl font-bold text-rose-400">-${stats.removed_count || 0}</span>
+                        </div>
+                        <div class="bg-slate-950 border border-slate-800 p-3.5 rounded-xl text-center">
+                            <span class="text-[11px] text-slate-400 font-semibold block">Sections Identiques</span>
+                            <span class="text-xl font-bold text-slate-300">${stats.unchanged_count || 0}</span>
+                        </div>
+                    </div>
+
+                    <!-- Synthèse IA -->
+                    <div class="bg-slate-950 border border-slate-800 p-5 rounded-xl space-y-2">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                            <i data-lucide="sparkles" class="w-4 h-4"></i> Synthèse des Impacts & Évolutions
+                        </h4>
+                        <div class="prose prose-invert max-w-none text-xs leading-relaxed">${marked.parse(data.summary || '')}</div>
+                    </div>
+
+                    <!-- Sections Ajoutées -->
+                    ${addSections.length > 0 ? `
+                        <div class="space-y-2">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                                <i data-lucide="plus-circle" class="w-4 h-4"></i> Nouvelles Sections Ajoutées dans la Version B (${addSections.length})
+                            </h4>
+                            <div class="space-y-2">
+                                ${addSections.map(s => `
+                                    <div class="bg-slate-950 border border-slate-800 p-3.5 rounded-xl space-y-1.5">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <span class="font-bold text-xs text-emerald-400">+ ${escapeHtml(s.title)}</span>
+                                            ${s.has_table ? '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-600/20 text-emerald-300">📊 Contient un tableau</span>' : ''}
+                                        </div>
+                                        <pre class="text-[11px] text-slate-300 whitespace-pre-wrap font-sans bg-slate-900 p-2.5 rounded-lg border border-slate-800 max-h-40 overflow-y-auto">${escapeHtml(s.preview)}</pre>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Sections Supprimées -->
+                    ${remSections.length > 0 ? `
+                        <div class="space-y-2">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
+                                <i data-lucide="minus-circle" class="w-4 h-4"></i> Sections Supprimées de la Version A (${remSections.length})
+                            </h4>
+                            <div class="space-y-2">
+                                ${remSections.map(s => `
+                                    <div class="bg-slate-950 border border-slate-800 p-3.5 rounded-xl space-y-1.5">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <span class="font-bold text-xs text-rose-400">- ${escapeHtml(s.title)}</span>
+                                            ${s.has_table ? '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/10 text-rose-400">📊 Contenait un tableau</span>' : ''}
+                                        </div>
+                                        <pre class="text-[11px] text-slate-400 whitespace-pre-wrap font-sans bg-slate-900 p-2.5 rounded-lg border border-slate-800 max-h-32 overflow-y-auto">${escapeHtml(s.preview)}</pre>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Sections Modifiées (Diff ligne à ligne) -->
+                    ${modSections.length > 0 ? `
+                        <div class="space-y-2.5">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                                <i data-lucide="file-diff" class="w-4 h-4"></i> Détail des Paragraphes & Tableaux Modifiés (${modSections.length})
+                            </h4>
+                            <div class="space-y-3">
+                                ${modSections.map(m => `
+                                    <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-2.5">
+                                        <div class="flex flex-wrap items-center justify-between gap-2">
+                                            <span class="font-bold text-xs text-white">📑 ${escapeHtml(m.title_b)}</span>
+                                            <div class="flex items-center gap-1.5">
+                                                ${m.has_table ? '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-600/20 text-indigo-300 border border-indigo-500/30">📊 Tableau / Liste modifié(e)</span>' : ''}
+                                                <span class="px-2 py-0.5 rounded font-mono text-[10px] bg-slate-900 border border-slate-700 text-slate-300">Similarité: ${m.similarity_pct}%</span>
+                                            </div>
+                                        </div>
+                                        <div class="bg-slate-900 border border-slate-800 rounded-lg p-3 font-mono text-[11px] space-y-0.5 max-h-60 overflow-y-auto custom-scrollbar">
+                                            ${(m.diff_lines || []).map(ln => {
+                                                if (ln.startsWith('+')) {
+                                                    return `<div class="bg-emerald-950/50 text-emerald-300 px-2 py-0.5 rounded">${escapeHtml(ln)}</div>`;
+                                                } else if (ln.startsWith('-')) {
+                                                    return `<div class="bg-rose-950/40 text-rose-300 px-2 py-0.5 rounded">${escapeHtml(ln)}</div>`;
+                                                }
+                                                return `<div class="text-slate-400 px-2 py-0.5">${escapeHtml(ln)}</div>`;
+                                            }).join('')}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                `;
+                lucide.createIcons();
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<div class="p-6 bg-rose-950/40 border border-rose-800/60 rounded-xl text-rose-300 text-xs text-center">Erreur lors de la comparaison : ${err.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="git-compare" class="w-4 h-4"></i> Comparer les 2 Versions';
+                lucide.createIcons();
             }
         }
     </script>

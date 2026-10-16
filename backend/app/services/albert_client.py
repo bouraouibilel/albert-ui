@@ -334,13 +334,15 @@ class AlbertAPIClient:
                 log_event("ALBERT-API", f"❌ Erreur list_documents: {e}", level="ERROR")
                 return []
 
-    async def get_document_chunks(self, document_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    async def get_document_chunks(self, document_id: str, limit: int = 100) -> List[Dict[str, Any]]:
         """Récupère les morceaux (chunks) d'un document sur Albert API."""
         log_event("ALBERT-API", f"📡 Requête GET /v1/documents/{document_id}/chunks (limit={limit})...")
         params = {"limit": limit}
         async with httpx.AsyncClient(headers=self.headers, timeout=60.0) as client:
             try:
                 response = await client.get(f"{self.base_url}/documents/{document_id}/chunks", params=params)
+                if response.status_code == 422:
+                    response = await client.get(f"{self.base_url}/documents/{document_id}/chunks")
                 if response.status_code == 200:
                     data = response.json()
                     chunks = data if isinstance(data, list) else data.get("data", data.get("chunks", []))
@@ -351,31 +353,171 @@ class AlbertAPIClient:
                 log_event("ALBERT-API", f"❌ Erreur get_document_chunks({document_id}): {e}", level="ERROR")
                 return []
 
-    async def upload_document(self, collection_id: str, file_path: str, filename: str) -> Dict[str, Any]:
-        """Envoie un fichier Markdown (.md) à une collection Albert API."""
-        log_event("ALBERT-API", f"🚀 Indexation POST /v1/documents -> Envoi du fichier '{filename}' dans collection {collection_id}...")
+    async def upload_document(
+        self,
+        collection_id: str,
+        file_path: str,
+        filename: str,
+        chunk_size: int = 2048,
+        chunk_overlap: int = 256,
+        preset_separators: str = "markdown"
+    ) -> Dict[str, Any]:
+        """
+        Envoie un fichier Markdown (.md) à une collection Albert API avec la configuration optimale de chunking :
+        - chunk_size=2048 : taille idéale pour conserver des sections et sous-tableaux complets
+        - chunk_overlap=256 : chevauchement pour éviter toute perte de contexte entre deux paragraphes
+        - preset_separators='markdown' : découpage respectant la hiérarchie des titres (#, ##, ###)
+        """
+        log_event(
+            "ALBERT-API",
+            f"🚀 Indexation POST /v1/documents -> '{filename}' (collection={collection_id}, "
+            f"chunk_size={chunk_size}, overlap={chunk_overlap}, separators={preset_separators})..."
+        )
         async with httpx.AsyncClient(headers=self.headers, timeout=120.0) as client:
             try:
+                col_val = int(collection_id) if str(collection_id).isdigit() else collection_id
                 with open(file_path, "rb") as f:
-                    files = {"file": (filename, f, "text/markdown")}
-                    col_val = int(collection_id) if str(collection_id).isdigit() else collection_id
-                    data = {"collection_id": col_val}
-                    response = await client.post(f"{self.base_url}/documents", data=data, files=files)
-                    if response.status_code in [200, 201]:
-                        res_json = response.json()
-                        log_event("ALBERT-API", f"✅ Document '{filename}' indexé avec succès dans Albert API (Doc ID: {res_json.get('id')})")
-                        return res_json
-                    log_event("ALBERT-API", f"⚠️ POST /v1/documents HTTP {response.status_code}", level="WARNING")
-                    return {"id": f"doc_{filename}", "filename": filename, "status": "indexed_local"}
+                    file_bytes = f.read()
+
+                files = {"file": (filename, file_bytes, "text/markdown")}
+                data = {
+                    "collection_id": col_val,
+                    "chunk_size": chunk_size,
+                    "chunk_overlap": chunk_overlap,
+                    "preset_separators": preset_separators
+                }
+                response = await client.post(f"{self.base_url}/documents", data=data, files=files)
+
+                # Fallback si la version du serveur Albert ne supporte pas certains paramètres form-data
+                if response.status_code == 422:
+                    log_event("ALBERT-API", "ℹ️ Repli POST /v1/documents avec paramètres standard...", level="INFO")
+                    files_fallback = {"file": (filename, file_bytes, "text/markdown")}
+                    response = await client.post(
+                        f"{self.base_url}/documents",
+                        data={"collection_id": col_val},
+                        files=files_fallback
+                    )
+
+                if response.status_code in [200, 201]:
+                    res_json = response.json()
+                    log_event("ALBERT-API", f"✅ Document '{filename}' indexé avec succès dans Albert API (Doc ID: {res_json.get('id')})")
+                    return res_json
+                log_event("ALBERT-API", f"⚠️ POST /v1/documents HTTP {response.status_code}", level="WARNING")
+                return {"id": f"doc_{filename}", "filename": filename, "status": "indexed_local"}
             except Exception as e:
                 log_event("ALBERT-API", f"❌ Erreur upload_document: {e}", level="ERROR")
                 return {"id": f"doc_{filename}", "filename": filename, "status": "indexed_local"}
+
+    async def search_chunks(
+        self,
+        query: str,
+        collection_id: str,
+        document_id: Optional[str] = None,
+        method: str = "hybrid",
+        limit: int = 15
+    ) -> List[Dict[str, Any]]:
+        """
+        Interroge l'endpoint officiel POST /v1/search d'Albert API (OpenGateLLM) :
+        - Supporte les méthodes 'hybrid' (Sémantique + Lexical BM25 avec RRF), 'semantic' et 'lexical'.
+        - Permet de filtrer sur une collection et optionnellement sur un document précis (document_ids).
+        """
+        col_val = int(collection_id) if str(collection_id).isdigit() else collection_id
+        payload: Dict[str, Any] = {
+            "collection_ids": [col_val],
+            "query": query,
+            "method": method if method in ["hybrid", "semantic", "lexical"] else "hybrid",
+            "limit": limit
+        }
+        if payload["method"] == "hybrid":
+            payload["rff_k"] = 60
+
+        if document_id and str(document_id).strip():
+            doc_val = int(document_id) if str(document_id).isdigit() else document_id
+            payload["document_ids"] = [doc_val]
+
+        log_event(
+            "ALBERT-API",
+            f"🔍 POST /v1/search (method={payload['method']}, collection={col_val}, doc={document_id or 'tous'}, limit={limit})..."
+        )
+        async with httpx.AsyncClient(headers=self.headers, timeout=45.0) as client:
+            try:
+                response = await client.post(f"{self.base_url}/search", json=payload)
+                # Fallback en mode semantic si le serveur ne supporte pas hybrid ou rff_k
+                if response.status_code == 422 and payload.get("method") == "hybrid":
+                    payload.pop("rff_k", None)
+                    payload["method"] = "semantic"
+                    response = await client.post(f"{self.base_url}/search", json=payload)
+
+                if response.status_code == 200:
+                    data = response.json()
+                    raw_items = data if isinstance(data, list) else data.get("data", data.get("results", data.get("chunks", [])))
+                    results = []
+                    for item in raw_items:
+                        chunk_obj = item.get("chunk", item) if isinstance(item, dict) else {}
+                        content = chunk_obj.get("content") or item.get("content") or ""
+                        score = item.get("score") or chunk_obj.get("score") or 0.0
+                        meta = chunk_obj.get("metadata") or item.get("metadata") or {}
+                        doc_name = (
+                            meta.get("document_name")
+                            or meta.get("name")
+                            or meta.get("filename")
+                            or item.get("document_name")
+                            or ""
+                        )
+                        if content.strip():
+                            results.append({
+                                "content": content.strip(),
+                                "search_score": round(float(score), 4) if score else 0.0,
+                                "document_id": chunk_obj.get("document_id") or item.get("document_id"),
+                                "document_name": doc_name,
+                                "chunk_id": chunk_obj.get("id") or item.get("id")
+                            })
+                    log_event("ALBERT-API", f"✅ /v1/search -> {len(results)} extrait(s) pertinent(s) trouvé(s)")
+                    return results
+                log_event("ALBERT-API", f"⚠️ POST /v1/search HTTP {response.status_code}", level="WARNING")
+                return []
+            except Exception as e:
+                log_event("ALBERT-API", f"❌ Erreur search_chunks: {e}", level="ERROR")
+                return []
+
+    async def generate_text(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.2,
+        max_tokens: int = 1200
+    ) -> str:
+        """
+        Appelle /v1/chat/completions sur Albert API pour générer une synthèse RAG ou une comparaison de versions.
+        """
+        model_name = "mistral-small-3-2-24b-instruct-2506"
+        payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        async with httpx.AsyncClient(headers=self.headers, timeout=60.0) as client:
+            try:
+                response = await client.post(f"{self.base_url}/chat/completions", json=payload)
+                if response.status_code == 200:
+                    res_json = response.json()
+                    choices = res_json.get("choices", [])
+                    if choices:
+                        return choices[0].get("message", {}).get("content", "").strip()
+                return ""
+            except Exception as e:
+                log_event("ALBERT-API", f"❌ Erreur generate_text: {e}", level="ERROR")
+                return ""
 
     async def rerank(
         self, 
         query: str, 
         documents: List[str], 
-        top_n: int = 3, 
+        top_n: int = 5, 
         model: str = "bge-reranker-v2-m3"
     ) -> List[Dict[str, Any]]:
         """Appelle /v1/rerank pour réordonner les candidats avec le modèle Cross-Encoder 'bge-reranker-v2-m3'."""
@@ -419,3 +561,4 @@ class AlbertAPIClient:
                 return []
 
 albert_client = AlbertAPIClient()
+
