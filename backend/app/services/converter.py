@@ -88,7 +88,8 @@ class DocumentConverter:
         ]
         if extra:
             parts.append(extra)
-        return f"\n> 🏷️ **[{" | ".join(parts)}]**\n"
+        tag_str = " | ".join(parts)
+        return f"\n> 🏷️ **[{tag_str}]**\n"
 
     @staticmethod
     def _detect_heading_level(text: str, style_name: str = "", outline_lvl: Optional[int] = None) -> Tuple[Optional[int], str]:
